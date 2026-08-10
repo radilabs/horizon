@@ -1,4 +1,4 @@
-# Provider contract (Phase 2)
+# Provider contract (Phase 2+)
 
 Horizon providers are small Python modules selected by an explicit registry in the `ai-usage` CLI.
 
@@ -10,7 +10,7 @@ Each provider implementation must support:
 
 | Concern | Method / attribute | Notes |
 |---------|--------------------|--------|
-| Identity | `id: str` | Stable CLI id (`codex`) |
+| Identity | `id: str` | Stable CLI id (`codex`, `cursor`, `stepfun`) |
 | Display | `display_name: str` | Default label before fetch |
 | Availability | `detect() -> None` | Raises `ProviderError` if auth/local prerequisites missing |
 | Retrieval | `fetch_usage(**opts) -> dict` | Returns **normalized** usage payload (`status=ok` or raises) |
@@ -34,6 +34,7 @@ Normalization happens inside the provider (or helpers it owns). The CLI dispatch
 PROVIDERS = {
   "codex": CodexProvider,
   "cursor": CursorProvider,
+  "stepfun": StepFunProvider,
 }
 ```
 
@@ -41,7 +42,7 @@ Unknown provider ids fail with a clear error (no traceback for normal invalid in
 
 ## What providers must not do
 
-* Store Horizon-owned credentials
+* Store Horizon-owned credentials **except** via the minimal OS secret store when no provider-owned local source exists (ADR-0009)
 * Emit tokens/cookies/authorization material in normalized output
 * Require Plasma/QML knowledge
 
@@ -49,5 +50,6 @@ Unknown provider ids fail with a clear error (no traceback for normal invalid in
 
 * `codex` — ChatGPT / Codex usage (Phase 1–2)
 * `cursor` — Cursor DashboardService usage via local `state.vscdb` (Phase 3)
+* `stepfun` — StepFun Step Plan via user-supplied Oasis token in KWallet (Phase 4)
 
-Provider-specific auth path overrides may be passed through the generic `--auth-file` flag (Codex: `auth.json`; Cursor: `state.vscdb`). Cursor auth remains read-only: Horizon never writes Cursor credentials.
+Provider-specific auth path overrides may be passed through the generic `--auth-file` flag (Codex: `auth.json`; Cursor: `state.vscdb`). StepFun uses `ai-usage auth stepfun …` and the OS credential store instead. Cursor auth remains read-only.

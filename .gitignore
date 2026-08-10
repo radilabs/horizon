@@ -4,9 +4,11 @@
 .env.*
 *.token
 *.secret
+*.oasis
 auth.json
 credentials.json
 secrets/
+oasis-token*
 
 # Local collector / runtime state that must never be committed
 *.pem

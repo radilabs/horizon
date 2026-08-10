@@ -18,7 +18,13 @@ Example for Cursor:
 ~/.cache/horizon/usage-cursor.json
 ```
 
-Not in the git repository. Not beside provider credentials.
+Example for StepFun:
+
+```text
+~/.cache/horizon/usage-stepfun.json
+```
+
+Not in the git repository. Not beside provider credentials. Never contains Oasis tokens or cookies.
 
 ## Format
 

@@ -23,7 +23,7 @@ PlasmoidItem {
     activationTogglesExpanded: true
 
     // Phase 3: explicit fixed provider list (no settings / discovery).
-    readonly property var providerIds: ["codex", "cursor"]
+    readonly property var providerIds: ["codex", "cursor", "stepfun"]
 
     property int pendingCount: 0
     property bool loading: pendingCount > 0
@@ -313,7 +313,7 @@ PlasmoidItem {
 
     fullRepresentation: Item {
         property int contentWidth: Kirigami.Units.gridUnit * 18
-        property int contentHeight: Kirigami.Units.gridUnit * 28
+        property int contentHeight: Kirigami.Units.gridUnit * 36
 
         Layout.minimumWidth: contentWidth
         Layout.minimumHeight: contentHeight

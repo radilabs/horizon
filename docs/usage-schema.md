@@ -107,6 +107,32 @@ This is the only shape the Plasma UI understands. Provider-specific upstream dat
 }
 ```
 
+## Sanitized StepFun success (rolling-window)
+
+```json
+{
+  "provider": "stepfun",
+  "displayName": "StepFun",
+  "plan": "Plus",
+  "remainingPercent": 84,
+  "secondaryRemainingPercent": 62,
+  "breakdown": [
+    {
+      "label": "5-Hour Usage",
+      "remainingPercent": 84,
+      "resetAt": "2026-04-30T12:00:00+02:00"
+    },
+    {
+      "label": "Weekly Usage",
+      "remainingPercent": 62,
+      "resetAt": "2026-05-05T12:00:00+02:00"
+    }
+  ],
+  "resetAt": "2026-04-30T12:00:00+02:00",
+  "status": "ok"
+}
+```
+
 ## Forbidden fields
 
 Tokens, cookies, authorization headers, credential paths with secrets, raw upstream API blobs.

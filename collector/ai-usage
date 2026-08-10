@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Horizon ai-usage collector — provider dispatch + cache (Phase 2)."""
+"""Horizon ai-usage collector — provider dispatch + cache + StepFun auth."""
 
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import sys
 from pathlib import Path
@@ -17,10 +18,16 @@ from cache import stale_payload, write_success  # noqa: E402
 from providers import ProviderError, error_payload  # noqa: E402
 from providers.codex import CodexProvider  # noqa: E402
 from providers.cursor import CursorProvider  # noqa: E402
+from providers.stepfun import StepFunProvider  # noqa: E402
+from secret_store import SecretStoreError  # noqa: E402
+from secret_store import configured as secret_configured  # noqa: E402
+from secret_store import delete as secret_delete  # noqa: E402
+from secret_store import set as secret_set  # noqa: E402
 
 PROVIDERS = {
     "codex": CodexProvider,
     "cursor": CursorProvider,
+    "stepfun": StepFunProvider,
 }
 
 
@@ -39,31 +46,43 @@ def build_provider(provider_id: str, auth_file: str | None):
     return cls()
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="ai-usage", description="Horizon AI usage collector")
-    sub = parser.add_subparsers(dest="command", required=True)
+def cmd_auth(args: argparse.Namespace) -> int:
+    if args.provider != "stepfun":
+        eprint("Only `ai-usage auth stepfun …` is supported")
+        return 2
+    action = args.auth_action
+    try:
+        if action == "set":
+            # Never accept --token. Prompt with echo suppressed on a TTY;
+            # when stdin is piped (non-TTY), read one line so automation need
+            # not put the secret in argv/history.
+            if sys.stdin.isatty():
+                token = getpass.getpass("Oasis token: ")
+            else:
+                token = sys.stdin.readline()
+            token = (token or "").strip()
+            if not token:
+                eprint("No token provided")
+                return 1
+            secret_set("stepfun", "oasis-token", token)
+            print("configured")
+            return 0
+        if action == "status":
+            print("configured" if secret_configured("stepfun", "oasis-token") else "missing")
+            return 0
+        if action == "clear":
+            secret_delete("stepfun", "oasis-token")
+            print("cleared")
+            return 0
+    except SecretStoreError as exc:
+        eprint(str(exc))
+        return 1
+    eprint(f"Unknown auth action: {action}")
+    return 2
 
-    status = sub.add_parser("status", help="Fetch provider usage status")
-    status.add_argument("provider", help="Provider id (e.g. codex)")
-    status.add_argument("--json", action="store_true", help="Emit normalized JSON on stdout")
-    status.add_argument(
-        "--auth-file",
-        default=None,
-        help="Optional auth path override (Codex: auth.json; Cursor: state.vscdb)",
-    )
-    status.add_argument(
-        "--force-refresh",
-        action="store_true",
-        help="Force provider credential refresh when supported",
-    )
-    status.add_argument(
-        "--no-cache",
-        action="store_true",
-        help="Do not read or write the last-successful cache",
-    )
 
-    args = parser.parse_args(argv)
-    if args.command != "status" or not args.json:
+def cmd_status(args: argparse.Namespace) -> int:
+    if not args.json:
         eprint("Only `ai-usage status <provider> --json` is supported")
         return 2
 
@@ -95,7 +114,6 @@ def main(argv: list[str] | None = None) -> int:
             stale = stale_payload(provider_id, display, exc.message)
             if stale is not None:
                 print(json.dumps(stale, separators=(",", ":")))
-                # Non-zero: live failed, even though stale data is useful.
                 return 1
         print(json.dumps(error_payload(provider_id, display, exc.code, exc.message), separators=(",", ":")))
         return 1
@@ -113,6 +131,42 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         return 1
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="ai-usage", description="Horizon AI usage collector")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    status = sub.add_parser("status", help="Fetch provider usage status")
+    status.add_argument("provider", help="Provider id (e.g. codex)")
+    status.add_argument("--json", action="store_true", help="Emit normalized JSON on stdout")
+    status.add_argument(
+        "--auth-file",
+        default=None,
+        help="Optional auth path override (Codex: auth.json; Cursor: state.vscdb)",
+    )
+    status.add_argument(
+        "--force-refresh",
+        action="store_true",
+        help="Force provider credential refresh when supported",
+    )
+    status.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Do not read or write the last-successful cache",
+    )
+
+    auth = sub.add_parser("auth", help="Manage Horizon-owned provider secrets in the OS store")
+    auth.add_argument("provider", help="Provider id (currently: stepfun)")
+    auth.add_argument("auth_action", choices=["set", "status", "clear"], help="Auth action")
+
+    args = parser.parse_args(argv)
+    if args.command == "auth":
+        return cmd_auth(args)
+    if args.command == "status":
+        return cmd_status(args)
+    eprint(f"Unknown command: {args.command}")
+    return 2
 
 
 if __name__ == "__main__":

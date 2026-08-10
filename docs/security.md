@@ -2,17 +2,17 @@
 
 ## Credential ownership
 
-Horizon reuses provider authentication that already exists on the machine.
+Prefer **provider-owned** local authentication when it exists (Codex `auth.json`, Cursor `state.vscdb`).
 
-Horizon does **not** own provider credentials.
+When a provider has **no** local credential store (StepFun), Horizon may securely store a **user-supplied** secret in the **OS credential store** (KWallet). See ADR-0009.
 
 Horizon must not:
 
-* implement its own provider login or OAuth flow
-* copy provider credentials into Horizon-owned storage
-* migrate credentials into the repository
-* write tokens to cache or config files owned by Horizon
+* implement provider username/password login flows
+* store provider passwords
+* copy secrets into Horizon config, XDG usage cache, env files, or the repository
 * print tokens to stdout, stderr, logs, docs, or task evidence
+* accept secrets via CLI flags such as `--token`
 * commit authentication files
 
 ## Reading credentials
@@ -20,6 +20,13 @@ Horizon must not:
 Authentication data may be read only when required to perform a provider request.
 
 Credentials must be retained only in memory for the duration of that request and must not be serialized into Horizon outputs.
+
+## StepFun Oasis token
+
+* Configure with: `ai-usage auth stepfun set` (secure prompt / non-echoing TTY)
+* Status/clear: `ai-usage auth stepfun status` / `ai-usage auth stepfun clear`
+* Storage: KWallet folder `Horizon`, entry `stepfun/oasis-token`
+* Never place the token in cache, docs, or evidence
 
 ## Documentation and evidence
 
@@ -36,7 +43,7 @@ git status
 git diff
 git diff --cached
 git grep -Ei 'bearer[[:space:]]+[A-Za-z0-9._-]+' || true
-git grep -Ei 'access[_-]?token|refresh[_-]?token|api[_-]?key|authorization' || true
+git grep -Ei 'access[_-]?token|refresh[_-]?token|api[_-]?key|authorization|oasis-token' || true
 ```
 
 Inspect Horizon cache (must be non-secret normalized usage only):
@@ -44,14 +51,14 @@ Inspect Horizon cache (must be non-secret normalized usage only):
 ```bash
 jq . "${XDG_CACHE_HOME:-$HOME/.cache}/horizon/usage-codex.json"
 jq . "${XDG_CACHE_HOME:-$HOME/.cache}/horizon/usage-cursor.json"
+jq . "${XDG_CACHE_HOME:-$HOME/.cache}/horizon/usage-stepfun.json"
 ```
 
-Never open or commit Cursor session artifacts such as:
+Never open or commit:
 
-* `~/.config/Cursor/User/globalStorage/state.vscdb`
-* Cursor `Cookies` / `storage.json`
-
-Horizon may read Cursor `state.vscdb` transiently in memory only; it must not copy tokens into cache or the repository.
+* Cursor `state.vscdb` / Cookies / `storage.json`
+* Codex `auth.json`
+* any Oasis token material
 
 Inspect any matches manually. Treat matches as candidates, not automatic leaks.
 
@@ -62,4 +69,4 @@ Confirm:
 * ignored credential-shaped filenames are not force-added
 * docs and task evidence contain only sanitized examples
 * cache files contain no credentials
-* Cursor `state.vscdb` / Cookies are not tracked
+* StepFun token exists only in KWallet (not repo/cache)
