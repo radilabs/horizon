@@ -1,8 +1,10 @@
 import QtQuick
 import QtQuick.Layouts
+import QtCore
 import org.kde.plasma.plasmoid
 import org.kde.plasma.components as PlasmaComponents
 import org.kde.plasma.core as PlasmaCore
+import org.kde.plasma.plasma5support as P5Support
 import org.kde.kirigami as Kirigami
 
 PlasmoidItem {
@@ -10,9 +12,8 @@ PlasmoidItem {
 
     Plasmoid.title: "Horizon"
     toolTipMainText: "Horizon"
-    toolTipSubText: "AI Agent Usage"
+    toolTipSubText: root.statusText
 
-    // Prefer compact on panels; full representation is the popup content.
     preferredRepresentation: Plasmoid.formFactor === PlasmaCore.Types.Planar
         ? fullRepresentation
         : compactRepresentation
@@ -21,16 +22,132 @@ PlasmoidItem {
     switchHeight: Kirigami.Units.gridUnit * 8
     activationTogglesExpanded: true
 
-    // Phase 0 fake Codex usage — hardcoded, no network/auth/collector.
     property string providerName: "Codex"
-    property string planName: "ChatGPT Plus"
-    property int remainingPercent: 72
-    property string resetText: "2h 14m"
-    property string refreshStatus: ""
+    property string planName: ""
+    property int remainingPercent: -1
+    property string resetText: ""
+    property string statusCode: "idle"
+    property string statusText: "AI Agent Usage"
+    property string errorText: ""
+    property bool loading: false
+    property bool hasData: remainingPercent >= 0 && statusCode === "ok"
 
-    function refreshFakeData() {
-        // Harmless local action for Phase 0 refresh control.
-        refreshStatus = "Refreshed (fake)"
+    function filesystemPath(urlOrPath) {
+        var s = String(urlOrPath)
+        if (s.indexOf("file://") === 0)
+            return decodeURIComponent(s.substring(7))
+        return s
+    }
+
+    function collectorCommand() {
+        var home = filesystemPath(StandardPaths.writableLocation(StandardPaths.HomeLocation))
+        return home + "/.local/bin/ai-usage status codex --json"
+    }
+
+    function formatReset(iso) {
+        if (!iso)
+            return ""
+        var ms = Date.parse(iso)
+        if (isNaN(ms))
+            return iso
+        var diffSec = Math.floor((ms - Date.now()) / 1000)
+        var sign = ""
+        if (diffSec < 0) {
+            sign = "-"
+            diffSec = -diffSec
+        }
+        var days = Math.floor(diffSec / 86400)
+        var hours = Math.floor((diffSec % 86400) / 3600)
+        var mins = Math.floor((diffSec % 3600) / 60)
+        if (days > 0)
+            return sign + days + "d " + hours + "h"
+        if (hours > 0)
+            return sign + hours + "h " + mins + "m"
+        return sign + mins + "m"
+    }
+
+    function applyPayload(obj) {
+        if (!obj || typeof obj !== "object") {
+            statusCode = "collector_error"
+            errorText = "Malformed collector output"
+            planName = ""
+            remainingPercent = -1
+            resetText = ""
+            statusText = "Collector error"
+            return
+        }
+        providerName = obj.displayName || obj.provider || "Codex"
+        statusCode = obj.status || "collector_error"
+        if (statusCode === "ok") {
+            planName = obj.plan || ""
+            remainingPercent = (typeof obj.remainingPercent === "number") ? obj.remainingPercent : -1
+            resetText = formatReset(obj.resetAt)
+            errorText = ""
+            statusText = providerName + (remainingPercent >= 0 ? (" " + remainingPercent + "%") : "")
+        } else {
+            planName = ""
+            remainingPercent = -1
+            resetText = ""
+            errorText = obj.error || statusCode
+            statusText = "Codex unavailable"
+        }
+    }
+
+    function refreshUsage() {
+        if (loading)
+            return
+        loading = true
+        errorText = ""
+        executable.exec(collectorCommand())
+    }
+
+    onExpandedChanged: function (expanded) {
+        if (expanded)
+            refreshUsage()
+    }
+
+    Component.onCompleted: {
+        // Prefetch so first open is faster when possible.
+        refreshUsage()
+    }
+
+    P5Support.DataSource {
+        id: executable
+        engine: "executable"
+        connectedSources: []
+
+        onNewData: function (sourceName, data) {
+            var stdout = data["stdout"] ? String(data["stdout"]).trim() : ""
+            var stderr = data["stderr"] ? String(data["stderr"]).trim() : ""
+            disconnectSource(sourceName)
+            loading = false
+
+            if (!stdout) {
+                statusCode = "collector_error"
+                errorText = stderr || "Collector produced no output"
+                planName = ""
+                remainingPercent = -1
+                resetText = ""
+                statusText = "Collector error"
+                return
+            }
+
+            try {
+                var obj = JSON.parse(stdout)
+                applyPayload(obj)
+            } catch (e) {
+                statusCode = "collector_error"
+                errorText = "Malformed collector output"
+                planName = ""
+                remainingPercent = -1
+                resetText = ""
+                statusText = "Collector error"
+            }
+        }
+
+        function exec(cmd) {
+            connectSource(cmd)
+        }
     }
 
     compactRepresentation: MouseArea {
@@ -55,7 +172,6 @@ PlasmoidItem {
     fullRepresentation: Item {
         id: fullRoot
 
-        // Explicit sizes so the panel popup is large enough to show fake Codex fields.
         property int contentWidth: Kirigami.Units.gridUnit * 18
         property int contentHeight: Kirigami.Units.gridUnit * 14
 
@@ -100,12 +216,14 @@ PlasmoidItem {
 
             PlasmaComponents.Label {
                 Layout.fillWidth: true
+                visible: root.hasData
                 text: root.planName
                 opacity: 0.85
             }
 
             RowLayout {
                 Layout.fillWidth: true
+                visible: root.hasData
                 spacing: Kirigami.Units.smallSpacing
 
                 PlasmaComponents.Label {
@@ -117,15 +235,26 @@ PlasmoidItem {
                     Layout.fillWidth: true
                     from: 0
                     to: 100
-                    value: root.remainingPercent
+                    value: Math.max(0, root.remainingPercent)
                     indeterminate: false
                 }
             }
 
             PlasmaComponents.Label {
                 Layout.fillWidth: true
+                visible: root.hasData && root.resetText.length > 0
                 text: "Reset: " + root.resetText
                 opacity: 0.85
+            }
+
+            PlasmaComponents.Label {
+                Layout.fillWidth: true
+                visible: !root.hasData
+                wrapMode: Text.WordWrap
+                text: root.loading
+                    ? "Loading Codex usage…"
+                    : (root.errorText.length ? root.errorText : "Codex usage unavailable")
+                color: root.loading ? Kirigami.Theme.textColor : Kirigami.Theme.negativeTextColor
             }
 
             Item {
@@ -138,13 +267,14 @@ PlasmoidItem {
                 spacing: Kirigami.Units.smallSpacing
 
                 PlasmaComponents.Button {
-                    text: "Refresh"
-                    onClicked: root.refreshFakeData()
+                    text: root.loading ? "Refreshing…" : "Refresh"
+                    enabled: !root.loading
+                    onClicked: root.refreshUsage()
                 }
 
                 PlasmaComponents.Label {
                     Layout.fillWidth: true
-                    text: root.refreshStatus
+                    text: root.loading ? "Running ai-usage…" : (root.hasData ? "" : root.statusCode)
                     opacity: 0.7
                     elide: Text.ElideRight
                 }

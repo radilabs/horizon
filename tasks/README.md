@@ -1,6 +1,6 @@
 # Task Execution
 
-Current phase: Phase 0
+Current phase: Phase 1
 
 1. Read PROJECT.md.
 2. Read PHASES.md.

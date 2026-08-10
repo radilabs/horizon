@@ -2,19 +2,22 @@
 
 KDE Plasma widget that shows remaining limits / quotas for AI coding tools.
 
-**Phase 0 status:** local Plasma 6 plasmoid with fake Codex usage UI.
+**Phase 1 status:** real Codex usage via local collector `ai-usage status codex --json`.
 
 ## Quick start
 
-See [docs/development.md](docs/development.md).
+See [docs/development.md](docs/development.md) and [docs/providers/codex.md](docs/providers/codex.md).
 
 ```bash
+mkdir -p ~/.local/bin
+ln -sfn "$PWD/collector/ai-usage" ~/.local/bin/ai-usage
+ai-usage status codex --json | jq .
+
 kpackagetool6 --type Plasma/Applet --install plasmoid
 # after edits:
 kpackagetool6 --type Plasma/Applet --upgrade plasmoid
-plasmawindowed com.radilabs.horizon
 ```
 
 Plugin Id: `com.radilabs.horizon`
 
-Displayed Codex data in Phase 0 is **fake**. Real Codex integration is Phase 1.
+Requires an existing Codex ChatGPT login (`~/.codex/auth.json`). Horizon does not implement login and does not store credentials.

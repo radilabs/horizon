@@ -1,0 +1,15 @@
+# Credential and secret ignore rules for Horizon
+
+.env
+.env.*
+*.token
+*.secret
+auth.json
+credentials.json
+secrets/
+
+# Local collector / runtime state that must never be committed
+*.pem
+*.key
+id_rsa
+id_ed25519

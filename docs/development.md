@@ -16,6 +16,16 @@ plasmoid/
 
 ## Install (first time)
 
+Install the Codex collector onto your PATH (Phase 1):
+
+```bash
+mkdir -p ~/.local/bin
+ln -sfn "$PWD/collector/ai-usage" ~/.local/bin/ai-usage
+ai-usage status codex --json | jq .
+```
+
+Requires an existing Codex ChatGPT login (`~/.codex/auth.json`). Horizon does not log you in.
+
 From the repository root:
 
 ```bash
