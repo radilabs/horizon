@@ -8,7 +8,7 @@ This is the only shape the Plasma UI understands. Provider-specific upstream dat
 
 | Field | Type | Meaning |
 |-------|------|---------|
-| `provider` | string | Stable provider id (`codex`) |
+| `provider` | string | Stable provider id (`codex`, `cursor`, …) |
 | `displayName` | string | Human label |
 | `plan` | string \| null | Subscription/plan label when known |
 | `remainingPercent` | number \| null | Remaining quota 0–100 when known |
@@ -23,6 +23,7 @@ This is the only shape the Plasma UI understands. Provider-specific upstream dat
 | `stale` | boolean | `true` when serving last-successful cache after live failure |
 | `fetchedAt` | string | ISO-8601 time when the **successful** payload was originally fetched |
 | `secondaryRemainingPercent` | number | Extra window when a provider proves it |
+| `breakdown` | array | Optional labeled meters: `{ "label": string, "remainingPercent": number, "resetAt"?: string }[]` (see ADR-0008) |
 
 ## Status values
 
@@ -77,6 +78,32 @@ This is the only shape the Plasma UI understands. Provider-specific upstream dat
   "stale": true,
   "fetchedAt": "2026-08-10T20:30:00+02:00",
   "error": "Current refresh failed"
+}
+```
+
+## Sanitized Cursor success (multi-meter)
+
+```json
+{
+  "provider": "cursor",
+  "displayName": "Cursor",
+  "plan": "Pro",
+  "remainingPercent": 98,
+  "secondaryRemainingPercent": 100,
+  "breakdown": [
+    {
+      "label": "Cursor Models",
+      "remainingPercent": 98,
+      "resetAt": "2026-09-02T21:24:02+02:00"
+    },
+    {
+      "label": "Other Models",
+      "remainingPercent": 100,
+      "resetAt": "2026-09-02T21:24:02+02:00"
+    }
+  ],
+  "resetAt": "2026-09-02T21:24:02+02:00",
+  "status": "ok"
 }
 ```
 

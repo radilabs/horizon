@@ -46,6 +46,7 @@ def write_success(provider_id: str, data: dict[str, Any]) -> Path:
                 "resetAt",
                 "status",
                 "secondaryRemainingPercent",
+                "breakdown",
             )
             if k in data
         },

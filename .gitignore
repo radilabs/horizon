@@ -16,3 +16,10 @@ id_ed25519
 
 __pycache__/
 *.pyc
+
+# Cursor / Electron local session artifacts (never commit)
+state.vscdb
+state.vscdb-*
+Cookies
+Cookies-journal
+storage.json

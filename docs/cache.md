@@ -12,6 +12,12 @@ Example for Codex:
 ~/.cache/horizon/usage-codex.json
 ```
 
+Example for Cursor:
+
+```text
+~/.cache/horizon/usage-cursor.json
+```
+
 Not in the git repository. Not beside provider credentials.
 
 ## Format

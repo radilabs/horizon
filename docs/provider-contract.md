@@ -33,6 +33,7 @@ Normalization happens inside the provider (or helpers it owns). The CLI dispatch
 ```text
 PROVIDERS = {
   "codex": CodexProvider,
+  "cursor": CursorProvider,
 }
 ```
 
@@ -44,6 +45,9 @@ Unknown provider ids fail with a clear error (no traceback for normal invalid in
 * Emit tokens/cookies/authorization material in normalized output
 * Require Plasma/QML knowledge
 
-## Immediate use
+## Registered providers
 
-Only `codex` is registered in Phase 2. The registry exists so Phase 3 can add another provider without rewriting the CLI.
+* `codex` — ChatGPT / Codex usage (Phase 1–2)
+* `cursor` — Cursor DashboardService usage via local `state.vscdb` (Phase 3)
+
+Provider-specific auth path overrides may be passed through the generic `--auth-file` flag (Codex: `auth.json`; Cursor: `state.vscdb`). Cursor auth remains read-only: Horizon never writes Cursor credentials.

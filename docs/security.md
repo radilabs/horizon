@@ -43,7 +43,15 @@ Inspect Horizon cache (must be non-secret normalized usage only):
 
 ```bash
 jq . "${XDG_CACHE_HOME:-$HOME/.cache}/horizon/usage-codex.json"
+jq . "${XDG_CACHE_HOME:-$HOME/.cache}/horizon/usage-cursor.json"
 ```
+
+Never open or commit Cursor session artifacts such as:
+
+* `~/.config/Cursor/User/globalStorage/state.vscdb`
+* Cursor `Cookies` / `storage.json`
+
+Horizon may read Cursor `state.vscdb` transiently in memory only; it must not copy tokens into cache or the repository.
 
 Inspect any matches manually. Treat matches as candidates, not automatic leaks.
 
@@ -54,3 +62,4 @@ Confirm:
 * ignored credential-shaped filenames are not force-added
 * docs and task evidence contain only sanitized examples
 * cache files contain no credentials
+* Cursor `state.vscdb` / Cookies are not tracked
