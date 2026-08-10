@@ -1,268 +1,38 @@
 #!/usr/bin/env python3
-"""Horizon ai-usage collector — Codex status (Phase 1).
-
-Reuses existing ~/.codex/auth.json ChatGPT OAuth tokens.
-Never prints tokens. Never writes Horizon-owned credential storage.
-May refresh and update Codex's own auth.json in place (same as Codex CLI).
-"""
+"""Horizon ai-usage collector — provider dispatch + cache (Phase 2)."""
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
-import tempfile
-import urllib.error
-import urllib.request
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
-CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
-REFRESH_URL = os.environ.get(
-    "CODEX_REFRESH_TOKEN_URL_OVERRIDE", "https://auth.openai.com/oauth/token"
-)
-USAGE_URL = "https://chatgpt.com/backend-api/wham/usage"
-DEFAULT_AUTH = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex")) / "auth.json"
+# Allow `collector/ai-usage` to import sibling packages when executed as a script.
+_ROOT = Path(__file__).resolve().parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
-PLAN_LABELS = {
-    "plus": "ChatGPT Plus",
-    "pro": "ChatGPT Pro",
-    "free": "ChatGPT Free",
-    "team": "ChatGPT Team",
+from cache import stale_payload, write_success  # noqa: E402
+from providers import ProviderError, error_payload  # noqa: E402
+from providers.codex import CodexProvider  # noqa: E402
+
+PROVIDERS = {
+    "codex": CodexProvider,
 }
-
-
-class CollectorError(Exception):
-    def __init__(self, code: str, message: str):
-        super().__init__(message)
-        self.code = code
-        self.message = message
 
 
 def eprint(msg: str) -> None:
     print(msg, file=sys.stderr)
 
 
-def load_auth(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        raise CollectorError("auth_unavailable", f"Codex auth file not found: {path}")
-    try:
-        data = json.loads(path.read_text())
-    except json.JSONDecodeError as exc:
-        raise CollectorError("auth_unavailable", f"Codex auth file is not valid JSON: {exc}") from exc
-    if not isinstance(data, dict):
-        raise CollectorError("auth_unavailable", "Codex auth file has unexpected shape")
-    return data
-
-
-def save_auth(path: Path, data: dict[str, Any]) -> None:
-    """Atomically update Codex-owned auth.json only."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(prefix=".auth-", suffix=".tmp", dir=str(path.parent))
-    try:
-        with os.fdopen(fd, "w") as tmp:
-            json.dump(data, tmp, indent=2)
-            tmp.write("\n")
-        os.chmod(tmp_name, 0o600)
-        os.replace(tmp_name, path)
-    except Exception:
-        try:
-            os.unlink(tmp_name)
-        except OSError:
-            pass
-        raise
-
-
-def refresh_tokens(auth: dict[str, Any], auth_path: Path) -> dict[str, Any]:
-    tokens = auth.get("tokens") or {}
-    refresh = tokens.get("refresh_token")
-    if not refresh:
-        raise CollectorError("auth_unavailable", "No refresh_token in Codex auth")
-
-    body = json.dumps(
-        {
-            "client_id": CLIENT_ID,
-            "grant_type": "refresh_token",
-            "refresh_token": refresh,
-        }
-    ).encode()
-    req = urllib.request.Request(REFRESH_URL, data=body, method="POST")
-    req.add_header("Content-Type", "application/json")
-    req.add_header("Accept", "application/json")
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            payload = json.loads(resp.read())
-    except urllib.error.HTTPError as exc:
-        raw = exc.read()
-        if exc.code in (400, 401, 403):
-            raise CollectorError(
-                "auth_unavailable",
-                f"Codex token refresh failed (HTTP {exc.code})",
-            ) from exc
-        raise CollectorError("upstream_error", f"Token refresh upstream error (HTTP {exc.code})") from exc
-    except urllib.error.URLError as exc:
-        raise CollectorError("upstream_error", f"Token refresh network error: {exc.reason}") from exc
-
-    if not isinstance(payload, dict) or not payload.get("access_token"):
-        raise CollectorError("upstream_error", "Token refresh returned unexpected payload")
-
-    new_tokens = dict(tokens)
-    new_tokens["access_token"] = payload["access_token"]
-    if payload.get("refresh_token"):
-        new_tokens["refresh_token"] = payload["refresh_token"]
-    if payload.get("id_token"):
-        new_tokens["id_token"] = payload["id_token"]
-    auth = dict(auth)
-    auth["tokens"] = new_tokens
-    auth["last_refresh"] = datetime.now(timezone.utc).isoformat()
-    save_auth(auth_path, auth)
-    # Drop secret locals as soon as practical; caller keeps auth dict briefly.
-    return auth
-
-
-def fetch_usage(access_token: str, account_id: str | None) -> dict[str, Any]:
-    req = urllib.request.Request(USAGE_URL, method="GET")
-    req.add_header("Authorization", f"Bearer {access_token}")
-    req.add_header("Accept", "application/json")
-    req.add_header("Referer", "https://chatgpt.com/codex/settings/usage")
-    req.add_header(
-        "User-Agent",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
-    )
-    if account_id:
-        req.add_header("ChatGPT-Account-ID", account_id)
-
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            raw = resp.read()
-            status = resp.status
-    except urllib.error.HTTPError as exc:
-        raw = exc.read()
-        status = exc.code
-        if status in (401, 403):
-            raise CollectorError("auth_unavailable", f"Usage request unauthorized (HTTP {status})") from exc
-        raise CollectorError("upstream_error", f"Usage request failed (HTTP {status})") from exc
-    except urllib.error.URLError as exc:
-        raise CollectorError("upstream_error", f"Usage network error: {exc.reason}") from exc
-
-    if status != 200:
-        raise CollectorError("upstream_error", f"Usage request failed (HTTP {status})")
-
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise CollectorError("upstream_error", "Usage response was not valid JSON") from exc
-    if not isinstance(data, dict):
-        raise CollectorError("upstream_error", "Usage response had unexpected shape")
-    return data
-
-
-def normalize(usage: dict[str, Any]) -> dict[str, Any]:
-    plan_type = usage.get("plan_type") or "unknown"
-    plan = PLAN_LABELS.get(str(plan_type).lower(), str(plan_type))
-
-    rate = usage.get("rate_limit") or {}
-    window = rate.get("primary_window") or usage.get("primary_window") or {}
-    if not isinstance(window, dict):
-        window = {}
-
-    used = window.get("used_percent")
-    if used is None:
-        raise CollectorError("upstream_error", "Usage response missing primary used_percent")
-    try:
-        used_f = float(used)
-    except (TypeError, ValueError) as exc:
-        raise CollectorError("upstream_error", "used_percent is not numeric") from exc
-
-    remaining = max(0, min(100, int(round(100 - used_f))))
-
-    reset_at = None
-    if window.get("reset_at") is not None:
-        try:
-            epoch = int(window["reset_at"])
-            reset_at = datetime.fromtimestamp(epoch, tz=timezone.utc).astimezone().isoformat()
-        except (TypeError, ValueError, OSError):
-            reset_at = None
-    elif window.get("reset_after_seconds") is not None:
-        try:
-            secs = int(window["reset_after_seconds"])
-            reset_at = datetime.now(timezone.utc).astimezone().timestamp()
-            reset_at = datetime.fromtimestamp(reset_at + secs, tz=timezone.utc).astimezone().isoformat()
-        except (TypeError, ValueError, OSError):
-            reset_at = None
-
-    out = {
-        "provider": "codex",
-        "displayName": "Codex",
-        "plan": plan,
-        "remainingPercent": remaining,
-        "resetAt": reset_at,
-        "status": "ok",
-    }
-    # Optional secondary window for Phase 1 display helpers (not required by UI).
-    secondary = rate.get("secondary_window")
-    if isinstance(secondary, dict) and secondary.get("used_percent") is not None:
-        try:
-            sec_used = float(secondary["used_percent"])
-            out["secondaryRemainingPercent"] = max(0, min(100, int(round(100 - sec_used))))
-        except (TypeError, ValueError):
-            pass
-    return out
-
-
-def error_payload(code: str, message: str) -> dict[str, Any]:
-    return {
-        "provider": "codex",
-        "displayName": "Codex",
-        "plan": None,
-        "remainingPercent": None,
-        "resetAt": None,
-        "status": code,
-        "error": message,
-    }
-
-
-def status_codex(auth_path: Path, force_refresh: bool = False) -> dict[str, Any]:
-    auth = load_auth(auth_path)
-    if auth.get("auth_mode") not in (None, "chatgpt"):
-        # API-key mode is out of Phase 1 Plus focus; still try chatgpt tokens if present.
-        pass
-
-    tokens = auth.get("tokens") or {}
-    if not isinstance(tokens, dict) or not tokens.get("access_token"):
-        if tokens.get("refresh_token"):
-            auth = refresh_tokens(auth, auth_path)
-            tokens = auth.get("tokens") or {}
-        else:
-            raise CollectorError("auth_unavailable", "Codex ChatGPT tokens are missing")
-
-    if force_refresh:
-        auth = refresh_tokens(auth, auth_path)
-        tokens = auth.get("tokens") or {}
-
-    access = tokens.get("access_token")
-    account_id = tokens.get("account_id")
-    if not access:
-        raise CollectorError("auth_unavailable", "Codex access_token missing after refresh")
-
-    try:
-        usage = fetch_usage(access, account_id if isinstance(account_id, str) else None)
-    except CollectorError as exc:
-        if exc.code == "auth_unavailable" and tokens.get("refresh_token") and not force_refresh:
-            eprint("access token rejected; refreshing")
-            auth = refresh_tokens(auth, auth_path)
-            tokens = auth.get("tokens") or {}
-            access = tokens.get("access_token")
-            if not access:
-                raise CollectorError("auth_unavailable", "Refresh did not yield access_token") from exc
-            usage = fetch_usage(access, tokens.get("account_id") if isinstance(tokens.get("account_id"), str) else None)
-        else:
-            raise
-
-    return normalize(usage)
+def build_provider(provider_id: str, auth_file: str | None):
+    cls = PROVIDERS.get(provider_id)
+    if cls is None:
+        return None
+    if provider_id == "codex":
+        return cls(auth_path=Path(auth_file).expanduser() if auth_file else None)
+    return cls()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -270,39 +40,71 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     status = sub.add_parser("status", help="Fetch provider usage status")
-    status.add_argument("provider", choices=["codex"])
+    status.add_argument("provider", help="Provider id (e.g. codex)")
     status.add_argument("--json", action="store_true", help="Emit normalized JSON on stdout")
     status.add_argument(
         "--auth-file",
-        default=str(DEFAULT_AUTH),
-        help="Path to Codex auth.json (default: $CODEX_HOME/auth.json)",
+        default=None,
+        help="Optional provider auth path override (Codex: auth.json)",
     )
     status.add_argument(
         "--force-refresh",
         action="store_true",
-        help="Force OAuth refresh before usage request",
+        help="Force provider credential refresh when supported",
+    )
+    status.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Do not read or write the last-successful cache",
     )
 
     args = parser.parse_args(argv)
     if args.command != "status" or not args.json:
-        eprint("Only `ai-usage status codex --json` is supported in Phase 1")
+        eprint("Only `ai-usage status <provider> --json` is supported")
         return 2
 
-    auth_path = Path(args.auth_file).expanduser()
-    # Allow tests to point at a missing/empty file without touching real auth.
-    try:
-        result = status_codex(auth_path, force_refresh=args.force_refresh)
-        print(json.dumps(result, separators=(",", ":")))
-        return 0
-    except CollectorError as exc:
-        eprint(exc.message)
-        print(json.dumps(error_payload(exc.code, exc.message), separators=(",", ":")))
-        return 1
-    except Exception as exc:  # noqa: BLE001 — boundary for CLI
-        eprint(f"collector failure: {exc}")
+    provider_id = args.provider
+    provider = build_provider(provider_id, args.auth_file)
+    if provider is None:
+        eprint(f"Unknown provider: {provider_id}")
         print(
             json.dumps(
-                error_payload("collector_error", "Unexpected collector failure"),
+                error_payload(provider_id, provider_id, "provider_unavailable", f"Unknown provider: {provider_id}"),
+                separators=(",", ":"),
+            )
+        )
+        return 1
+
+    display = getattr(provider, "display_name", provider_id)
+    try:
+        result = provider.fetch_usage(force_refresh=args.force_refresh)
+        if not args.no_cache:
+            try:
+                write_success(provider_id, result)
+            except Exception as exc:  # noqa: BLE001
+                eprint(f"cache write skipped: {exc}")
+        print(json.dumps(result, separators=(",", ":")))
+        return 0
+    except ProviderError as exc:
+        eprint(exc.message)
+        if not args.no_cache:
+            stale = stale_payload(provider_id, display, exc.message)
+            if stale is not None:
+                print(json.dumps(stale, separators=(",", ":")))
+                # Non-zero: live failed, even though stale data is useful.
+                return 1
+        print(json.dumps(error_payload(provider_id, display, exc.code, exc.message), separators=(",", ":")))
+        return 1
+    except Exception as exc:  # noqa: BLE001
+        eprint(f"collector failure: {exc}")
+        if not args.no_cache:
+            stale = stale_payload(provider_id, display, "Unexpected collector failure")
+            if stale is not None:
+                print(json.dumps(stale, separators=(",", ":")))
+                return 1
+        print(
+            json.dumps(
+                error_payload(provider_id, display, "collector_error", "Unexpected collector failure"),
                 separators=(",", ":"),
             )
         )

@@ -160,13 +160,14 @@ Intentionally ignored upstream fields: email, user ids, credits/spend details, p
 
 ## Collector invocation
 
-* Implementation: `collector/ai-usage` (Python 3)
+* Implementation: `collector/ai-usage` with `collector/providers/codex.py`
+* Selected via explicit registry (`PROVIDERS["codex"] = CodexProvider`)
 * Recommended install: symlink to `~/.local/bin/ai-usage`
 * Plasmoid executes: `$HOME/.local/bin/ai-usage status codex --json`
-* Diagnostics on stderr; machine JSON on stdout
+* Last-successful cache: `~/.cache/horizon/usage-codex.json` (normalized only)
 
 ## Authentication / storage conclusion (P1-T7)
 
 **Outcome C** — existing Codex credential file, read transiently; refresh updates Codex’s own `auth.json` only.
 
-Horizon stores no provider credentials.
+Horizon stores no provider credentials. Phase 2 may cache **normalized non-secret** usage only.

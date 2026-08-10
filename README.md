@@ -2,7 +2,9 @@
 
 KDE Plasma widget that shows remaining limits / quotas for AI coding tools.
 
-**Phase 1 status:** real Codex usage via local collector `ai-usage status codex --json`.
+**Phase 2 status:** Codex runs through a small provider registry with last-successful usage cache and stale UI fallback.
+
+Architecture docs: [provider-contract](docs/provider-contract.md), [usage-schema](docs/usage-schema.md), [cache](docs/cache.md).
 
 ## Quick start
 

@@ -22,15 +22,21 @@ PlasmoidItem {
     switchHeight: Kirigami.Units.gridUnit * 8
     activationTogglesExpanded: true
 
-    property string providerName: "Codex"
+    // Phase 2: single configured provider id for the collector command.
+    // Display names come from normalized JSON, not hard-coded product copy.
+    property string configuredProvider: "codex"
+
+    property string providerName: ""
     property string planName: ""
     property int remainingPercent: -1
     property string resetText: ""
     property string statusCode: "idle"
     property string statusText: "AI Agent Usage"
     property string errorText: ""
+    property string fetchedAtText: ""
+    property bool stale: false
     property bool loading: false
-    property bool hasData: remainingPercent >= 0 && statusCode === "ok"
+    property bool hasQuota: remainingPercent >= 0 && (statusCode === "ok" || statusCode === "stale")
 
     function filesystemPath(urlOrPath) {
         var s = String(urlOrPath)
@@ -41,10 +47,10 @@ PlasmoidItem {
 
     function collectorCommand() {
         var home = filesystemPath(StandardPaths.writableLocation(StandardPaths.HomeLocation))
-        return home + "/.local/bin/ai-usage status codex --json"
+        return home + "/.local/bin/ai-usage status " + configuredProvider + " --json"
     }
 
-    function formatReset(iso) {
+    function formatRelative(iso) {
         if (!iso)
             return ""
         var ms = Date.parse(iso)
@@ -66,30 +72,59 @@ PlasmoidItem {
         return sign + mins + "m"
     }
 
+    function formatFetchedAt(iso) {
+        if (!iso)
+            return ""
+        var ms = Date.parse(iso)
+        if (isNaN(ms))
+            return iso
+        var agoSec = Math.max(0, Math.floor((Date.now() - ms) / 1000))
+        var days = Math.floor(agoSec / 86400)
+        var hours = Math.floor((agoSec % 86400) / 3600)
+        var mins = Math.floor((agoSec % 3600) / 60)
+        if (days > 0)
+            return days + "d " + hours + "h ago"
+        if (hours > 0)
+            return hours + "h " + mins + "m ago"
+        if (mins > 0)
+            return mins + "m ago"
+        return "just now"
+    }
+
     function applyPayload(obj) {
         if (!obj || typeof obj !== "object") {
             statusCode = "collector_error"
             errorText = "Malformed collector output"
+            providerName = ""
             planName = ""
             remainingPercent = -1
             resetText = ""
+            fetchedAtText = ""
+            stale = false
             statusText = "Collector error"
             return
         }
-        providerName = obj.displayName || obj.provider || "Codex"
+
+        providerName = obj.displayName || obj.provider || configuredProvider
         statusCode = obj.status || "collector_error"
-        if (statusCode === "ok") {
+        stale = obj.stale === true || statusCode === "stale"
+
+        if (statusCode === "ok" || statusCode === "stale") {
             planName = obj.plan || ""
             remainingPercent = (typeof obj.remainingPercent === "number") ? obj.remainingPercent : -1
-            resetText = formatReset(obj.resetAt)
-            errorText = ""
+            resetText = formatRelative(obj.resetAt)
+            fetchedAtText = formatFetchedAt(obj.fetchedAt)
+            errorText = stale ? (obj.error || "Refresh failed") : ""
             statusText = providerName + (remainingPercent >= 0 ? (" " + remainingPercent + "%") : "")
+            if (stale)
+                statusText += " (cached)"
         } else {
             planName = ""
             remainingPercent = -1
             resetText = ""
+            fetchedAtText = ""
             errorText = obj.error || statusCode
-            statusText = "Codex unavailable"
+            statusText = "Usage unavailable"
         }
     }
 
@@ -106,10 +141,7 @@ PlasmoidItem {
             refreshUsage()
     }
 
-    Component.onCompleted: {
-        // Prefetch so first open is faster when possible.
-        refreshUsage()
-    }
+    Component.onCompleted: refreshUsage()
 
     P5Support.DataSource {
         id: executable
@@ -125,22 +157,27 @@ PlasmoidItem {
             if (!stdout) {
                 statusCode = "collector_error"
                 errorText = stderr || "Collector produced no output"
+                providerName = ""
                 planName = ""
                 remainingPercent = -1
                 resetText = ""
+                fetchedAtText = ""
+                stale = false
                 statusText = "Collector error"
                 return
             }
 
             try {
-                var obj = JSON.parse(stdout)
-                applyPayload(obj)
+                applyPayload(JSON.parse(stdout))
             } catch (e) {
                 statusCode = "collector_error"
                 errorText = "Malformed collector output"
+                providerName = ""
                 planName = ""
                 remainingPercent = -1
                 resetText = ""
+                fetchedAtText = ""
+                stale = false
                 statusText = "Collector error"
             }
         }
@@ -151,8 +188,6 @@ PlasmoidItem {
     }
 
     compactRepresentation: MouseArea {
-        id: compactRoot
-
         Layout.minimumWidth: Kirigami.Units.gridUnit * 2
         Layout.minimumHeight: Kirigami.Units.gridUnit
         Layout.preferredWidth: compactLabel.implicitWidth + Kirigami.Units.smallSpacing * 2
@@ -170,10 +205,8 @@ PlasmoidItem {
     }
 
     fullRepresentation: Item {
-        id: fullRoot
-
         property int contentWidth: Kirigami.Units.gridUnit * 18
-        property int contentHeight: Kirigami.Units.gridUnit * 14
+        property int contentHeight: Kirigami.Units.gridUnit * 15
 
         Layout.minimumWidth: contentWidth
         Layout.minimumHeight: contentHeight
@@ -210,20 +243,20 @@ PlasmoidItem {
 
             PlasmaComponents.Label {
                 Layout.fillWidth: true
-                text: root.providerName
+                text: root.providerName.length ? root.providerName : root.configuredProvider
                 font.bold: true
             }
 
             PlasmaComponents.Label {
                 Layout.fillWidth: true
-                visible: root.hasData
+                visible: root.hasQuota
                 text: root.planName
                 opacity: 0.85
             }
 
             RowLayout {
                 Layout.fillWidth: true
-                visible: root.hasData
+                visible: root.hasQuota
                 spacing: Kirigami.Units.smallSpacing
 
                 PlasmaComponents.Label {
@@ -242,18 +275,34 @@ PlasmoidItem {
 
             PlasmaComponents.Label {
                 Layout.fillWidth: true
-                visible: root.hasData && root.resetText.length > 0
+                visible: root.hasQuota && root.resetText.length > 0
                 text: "Reset: " + root.resetText
                 opacity: 0.85
             }
 
             PlasmaComponents.Label {
                 Layout.fillWidth: true
-                visible: !root.hasData
+                visible: root.stale && root.hasQuota
+                wrapMode: Text.WordWrap
+                text: "Cached" + (root.fetchedAtText.length ? (" — updated " + root.fetchedAtText) : "")
+                color: Kirigami.Theme.neutralTextColor
+            }
+
+            PlasmaComponents.Label {
+                Layout.fillWidth: true
+                visible: root.stale && root.errorText.length > 0
+                wrapMode: Text.WordWrap
+                text: root.errorText
+                color: Kirigami.Theme.negativeTextColor
+            }
+
+            PlasmaComponents.Label {
+                Layout.fillWidth: true
+                visible: !root.hasQuota
                 wrapMode: Text.WordWrap
                 text: root.loading
-                    ? "Loading Codex usage…"
-                    : (root.errorText.length ? root.errorText : "Codex usage unavailable")
+                    ? "Loading usage…"
+                    : (root.errorText.length ? root.errorText : "Usage unavailable")
                 color: root.loading ? Kirigami.Theme.textColor : Kirigami.Theme.negativeTextColor
             }
 
@@ -274,7 +323,7 @@ PlasmoidItem {
 
                 PlasmaComponents.Label {
                     Layout.fillWidth: true
-                    text: root.loading ? "Running ai-usage…" : (root.hasData ? "" : root.statusCode)
+                    text: root.loading ? "Running ai-usage…" : (root.hasQuota && !root.stale ? "" : root.statusCode)
                     opacity: 0.7
                     elide: Text.ElideRight
                 }

@@ -39,6 +39,12 @@ git grep -Ei 'bearer[[:space:]]+[A-Za-z0-9._-]+' || true
 git grep -Ei 'access[_-]?token|refresh[_-]?token|api[_-]?key|authorization' || true
 ```
 
+Inspect Horizon cache (must be non-secret normalized usage only):
+
+```bash
+jq . "${XDG_CACHE_HOME:-$HOME/.cache}/horizon/usage-codex.json"
+```
+
 Inspect any matches manually. Treat matches as candidates, not automatic leaks.
 
 Confirm:
@@ -47,3 +53,4 @@ Confirm:
 * no real credential files are tracked
 * ignored credential-shaped filenames are not force-added
 * docs and task evidence contain only sanitized examples
+* cache files contain no credentials
