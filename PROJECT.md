@@ -27,3 +27,13 @@ Show remaining limits / quotas for the AI coding tools and subscriptions I actua
 **Global rules**
 
 0. A phase is an immutable execution boundary. Tasks may be refined inside it, but its goal, scope, exclusions, and handoff contract may not be changed during implementation. Any discovered work outside the contract is recorded as deferred work, not implemented.
+
+1. Decision record: create one only when future work must respect a choice, constraint, rejection, or tradeoff.
+Docs: use for discovered facts, procedures, API behavior, setup steps, schemas, and operational knowledge.
+Task notes: use for temporary execution evidence and local findings.
+Deferred work: use for valid work outside current phase.
+Do not create docs just because something happened.
+
+The key rule is:
+
+If forgetting this information could cause a future agent to make a wrong implementation choice, record it. Otherwise don’t.

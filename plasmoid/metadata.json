@@ -1,0 +1,19 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Radilabs"
+            }
+        ],
+        "Category": "System Information",
+        "Description": "AI agent usage panel for Plasma",
+        "Icon": "assistant",
+        "Id": "com.radilabs.horizon",
+        "License": "Apache-2.0",
+        "Name": "Horizon",
+        "Version": "0.1.0",
+        "Website": "https://github.com/radilabs/horizon"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}
