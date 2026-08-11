@@ -12,7 +12,7 @@ PlasmoidItem {
 
     Plasmoid.title: "Horizon"
     toolTipMainText: "Horizon"
-    toolTipSubText: root.compactSummary
+    toolTipSubText: root.tooltipSummary
 
     preferredRepresentation: Plasmoid.formFactor === PlasmaCore.Types.Planar
         ? fullRepresentation
@@ -22,12 +22,11 @@ PlasmoidItem {
     switchHeight: Kirigami.Units.gridUnit * 8
     activationTogglesExpanded: true
 
-    // Phase 3: explicit fixed provider list (no settings / discovery).
-    readonly property var providerIds: ["codex", "cursor", "stepfun"]
+    readonly property var allProviderIds: ["codex", "cursor", "stepfun"]
 
-    property int pendingCount: 0
-    property bool loading: pendingCount > 0
-    property string compactSummary: "AI Agent Usage"
+    property string compactText: "AI"
+    property string tooltipSummary: "AI Agent Usage"
+    property bool anyInFlight: false
 
     ListModel {
         id: providersModel
@@ -40,13 +39,16 @@ PlasmoidItem {
         return s
     }
 
-    function collectorCommand(providerId) {
+    function collectorBin() {
         var home = filesystemPath(StandardPaths.writableLocation(StandardPaths.HomeLocation))
-        return home + "/.local/bin/ai-usage status " + providerId + " --json"
+        return home + "/.local/bin/ai-usage"
+    }
+
+    function collectorCommand(providerId) {
+        return collectorBin() + " status " + providerId + " --json"
     }
 
     function providerIdFromCommand(cmd) {
-        // Expect: …/ai-usage status <id> --json
         var parts = String(cmd).trim().split(/\s+/)
         var statusIdx = parts.indexOf("status")
         if (statusIdx >= 0 && statusIdx + 1 < parts.length)
@@ -54,26 +56,25 @@ PlasmoidItem {
         return ""
     }
 
-    function ensureModel() {
-        if (providersModel.count === providerIds.length)
-            return
-        providersModel.clear()
-        for (var i = 0; i < providerIds.length; i++) {
-            providersModel.append({
-                providerId: providerIds[i],
-                providerName: providerIds[i],
-                planName: "",
-                remainingPercent: -1,
-                secondaryRemainingPercent: -1,
-                breakdownJson: "[]",
-                resetText: "",
-                statusCode: "idle",
-                errorText: "",
-                fetchedAtText: "",
-                stale: false,
-                hasQuota: false
-            })
-        }
+    function enabledProviderIds() {
+        var ids = []
+        if (plasmoid.configuration.enableCodex)
+            ids.push("codex")
+        if (plasmoid.configuration.enableCursor)
+            ids.push("cursor")
+        if (plasmoid.configuration.enableStepfun)
+            ids.push("stepfun")
+        return ids
+    }
+
+    function providerEnabled(providerId) {
+        if (providerId === "codex")
+            return plasmoid.configuration.enableCodex
+        if (providerId === "cursor")
+            return plasmoid.configuration.enableCursor
+        if (providerId === "stepfun")
+            return plasmoid.configuration.enableStepfun
+        return false
     }
 
     function indexForProvider(providerId) {
@@ -82,6 +83,56 @@ PlasmoidItem {
                 return i
         }
         return -1
+    }
+
+    function syncModelToEnabled() {
+        var enabled = enabledProviderIds()
+        var byId = ({})
+        for (var i = 0; i < providersModel.count; i++) {
+            var row = providersModel.get(i)
+            byId[row.providerId] = {
+                providerId: row.providerId,
+                providerName: row.providerName,
+                planName: row.planName,
+                remainingPercent: row.remainingPercent,
+                secondaryRemainingPercent: row.secondaryRemainingPercent,
+                breakdownJson: row.breakdownJson,
+                resetText: row.resetText,
+                statusCode: row.statusCode,
+                statusLabel: row.statusLabel,
+                errorText: row.errorText,
+                fetchedAtText: row.fetchedAtText,
+                stale: row.stale,
+                hasQuota: row.hasQuota,
+                inFlight: row.inFlight
+            }
+        }
+        providersModel.clear()
+        for (var e = 0; e < enabled.length; e++) {
+            var id = enabled[e]
+            if (byId[id]) {
+                providersModel.append(byId[id])
+            } else {
+                providersModel.append({
+                    providerId: id,
+                    providerName: id,
+                    planName: "",
+                    remainingPercent: -1,
+                    secondaryRemainingPercent: -1,
+                    breakdownJson: "[]",
+                    resetText: "",
+                    statusCode: "idle",
+                    statusLabel: "",
+                    errorText: "",
+                    fetchedAtText: "",
+                    stale: false,
+                    hasQuota: false,
+                    inFlight: false
+                })
+            }
+        }
+        updateAnyInFlight()
+        updateCompactSummary()
     }
 
     function formatRelative(iso) {
@@ -125,6 +176,26 @@ PlasmoidItem {
         return "just now"
     }
 
+    function friendlyStatusLabel(statusCode, stale, hasQuota, fetchedAtText, inFlight) {
+        if (inFlight && (statusCode === "idle" || statusCode === ""))
+            return "Loading…"
+        if (statusCode === "ok")
+            return ""
+        if (statusCode === "stale" || (stale && hasQuota))
+            return fetchedAtText ? ("Cached · " + fetchedAtText) : "Cached"
+        if (statusCode === "auth_unavailable")
+            return "Needs authentication"
+        if (statusCode === "upstream_error")
+            return hasQuota && fetchedAtText ? ("Unavailable · cached " + fetchedAtText) : "Unavailable"
+        if (statusCode === "provider_unavailable")
+            return "Provider unavailable"
+        if (statusCode === "collector_error")
+            return "Collector error"
+        if (statusCode === "idle")
+            return ""
+        return "Unavailable"
+    }
+
     function applyPayload(providerId, obj) {
         var idx = indexForProvider(providerId)
         if (idx < 0)
@@ -139,11 +210,14 @@ PlasmoidItem {
                 breakdownJson: "[]",
                 resetText: "",
                 statusCode: "collector_error",
-                errorText: "Malformed collector output",
+                statusLabel: "Collector error",
+                errorText: "",
                 fetchedAtText: "",
                 stale: false,
-                hasQuota: false
+                hasQuota: false,
+                inFlight: false
             })
+            updateAnyInFlight()
             updateCompactSummary()
             return
         }
@@ -157,7 +231,6 @@ PlasmoidItem {
         var breakdownJson = "[]"
         var resetText = ""
         var fetchedAtText = ""
-        var errorText = ""
         var hasQuota = false
 
         if (statusCode === "ok" || statusCode === "stale") {
@@ -183,27 +256,26 @@ PlasmoidItem {
                 }
                 breakdownJson = JSON.stringify(lines)
             } else if (remainingPercent >= 0) {
-                // Synthetic single/dual lines when provider has no labeled breakdown.
                 var fallback = [{
                     label: "",
                     remainingPercent: remainingPercent,
                     resetText: formatRelative(obj.resetAt || "")
                 }]
-                if (secondaryRemainingPercent >= 0)
+                if (secondaryRemainingPercent >= 0) {
                     fallback.push({
                         label: "Secondary",
                         remainingPercent: secondaryRemainingPercent,
                         resetText: formatRelative(obj.resetAt || "")
                     })
+                }
                 breakdownJson = JSON.stringify(fallback)
             }
             resetText = formatRelative(obj.resetAt)
             fetchedAtText = formatFetchedAt(obj.fetchedAt)
-            errorText = stale ? (obj.error || "Refresh failed") : ""
             hasQuota = remainingPercent >= 0 || (Array.isArray(obj.breakdown) && obj.breakdown.length > 0)
-        } else {
-            errorText = obj.error || statusCode
         }
+
+        var statusLabel = friendlyStatusLabel(statusCode, stale, hasQuota, fetchedAtText, false)
 
         providersModel.set(idx, {
             providerName: providerName,
@@ -213,31 +285,126 @@ PlasmoidItem {
             breakdownJson: breakdownJson,
             resetText: resetText,
             statusCode: statusCode,
-            errorText: errorText,
+            statusLabel: statusLabel,
+            errorText: "",
             fetchedAtText: fetchedAtText,
             stale: stale,
-            hasQuota: hasQuota
+            hasQuota: hasQuota,
+            inFlight: false
         })
+        updateAnyInFlight()
         updateCompactSummary()
     }
 
-    function updateCompactSummary() {
-        var bits = []
+    function lowestQuotaPercent() {
+        var min = null
         for (var i = 0; i < providersModel.count; i++) {
             var row = providersModel.get(i)
-            if (row.hasQuota)
-                bits.push(row.providerName + " " + row.remainingPercent + "%" + (row.stale ? "*" : ""))
+            if (!row.hasQuota || typeof row.remainingPercent !== "number" || row.remainingPercent < 0)
+                continue
+            var candidate = row.remainingPercent
+            try {
+                var lines = JSON.parse(row.breakdownJson || "[]")
+                for (var j = 0; j < lines.length; j++) {
+                    if (typeof lines[j].remainingPercent === "number")
+                        candidate = Math.min(candidate, lines[j].remainingPercent)
+                }
+            } catch (e) { }
+            if (min === null || candidate < min)
+                min = candidate
         }
-        compactSummary = bits.length ? bits.join(" · ") : "AI Agent Usage"
+        return min
+    }
+
+    function updateCompactSummary() {
+        var min = lowestQuotaPercent()
+        if (min === null) {
+            var anyEnabled = enabledProviderIds().length > 0
+            var anyAuth = false
+            var anyErr = false
+            for (var i = 0; i < providersModel.count; i++) {
+                var st = providersModel.get(i).statusCode
+                if (st === "auth_unavailable")
+                    anyAuth = true
+                if (st !== "idle" && st !== "ok")
+                    anyErr = true
+            }
+            if (!anyEnabled)
+                compactText = "AI"
+            else if (anyAuth)
+                compactText = "AI !"
+            else if (anyErr)
+                compactText = "AI —"
+            else
+                compactText = "AI …"
+        } else {
+            compactText = "AI " + min + "%"
+        }
+
+        var bits = []
+        for (var k = 0; k < providersModel.count; k++) {
+            var row = providersModel.get(k)
+            var line = row.providerName
+            if (row.hasQuota) {
+                line += "  " + row.remainingPercent + "%"
+                if (row.secondaryRemainingPercent >= 0)
+                    line += " / " + row.secondaryRemainingPercent + "%"
+                if (row.stale)
+                    line += " (cached)"
+            } else if (row.statusLabel) {
+                line += "  " + row.statusLabel
+            } else if (row.inFlight) {
+                line += "  …"
+            } else {
+                line += "  —"
+            }
+            bits.push(line)
+        }
+        tooltipSummary = bits.length ? bits.join("\n") : "No providers enabled"
+    }
+
+    function updateAnyInFlight() {
+        var busy = false
+        for (var i = 0; i < providersModel.count; i++) {
+            if (providersModel.get(i).inFlight) {
+                busy = true
+                break
+            }
+        }
+        anyInFlight = busy
+    }
+
+    function refreshProvider(providerId) {
+        if (!providerEnabled(providerId))
+            return
+        var idx = indexForProvider(providerId)
+        if (idx < 0)
+            return
+        if (providersModel.get(idx).inFlight)
+            return
+        providersModel.setProperty(idx, "inFlight", true)
+        if (providersModel.get(idx).statusCode === "idle")
+            providersModel.setProperty(idx, "statusLabel", "Loading…")
+        updateAnyInFlight()
+        updateCompactSummary()
+        executable.exec(collectorCommand(providerId))
     }
 
     function refreshUsage() {
-        if (loading)
+        syncModelToEnabled()
+        var ids = enabledProviderIds()
+        if (ids.length === 0) {
+            updateCompactSummary()
             return
-        ensureModel()
-        pendingCount = providerIds.length
-        for (var i = 0; i < providerIds.length; i++)
-            executable.exec(collectorCommand(providerIds[i]))
+        }
+        for (var i = 0; i < ids.length; i++)
+            refreshProvider(ids[i])
+    }
+
+    function onConfigChanged() {
+        syncModelToEnabled()
+        refreshTimer.restart()
+        refreshUsage()
     }
 
     onExpandedChanged: function (expanded) {
@@ -245,8 +412,27 @@ PlasmoidItem {
             refreshUsage()
     }
 
+    Connections {
+        target: plasmoid.configuration
+        function onEnableCodexChanged() { root.onConfigChanged() }
+        function onEnableCursorChanged() { root.onConfigChanged() }
+        function onEnableStepfunChanged() { root.onConfigChanged() }
+        function onRefreshIntervalMinutesChanged() {
+            refreshTimer.interval = Math.max(1, plasmoid.configuration.refreshIntervalMinutes) * 60 * 1000
+            refreshTimer.restart()
+        }
+    }
+
+    Timer {
+        id: refreshTimer
+        interval: Math.max(1, plasmoid.configuration.refreshIntervalMinutes) * 60 * 1000
+        running: true
+        repeat: true
+        onTriggered: root.refreshUsage()
+    }
+
     Component.onCompleted: {
-        ensureModel()
+        syncModelToEnabled()
         refreshUsage()
     }
 
@@ -257,22 +443,17 @@ PlasmoidItem {
 
         onNewData: function (sourceName, data) {
             var stdout = data["stdout"] ? String(data["stdout"]).trim() : ""
-            var stderr = data["stderr"] ? String(data["stderr"]).trim() : ""
             var providerId = root.providerIdFromCommand(sourceName)
             disconnectSource(sourceName)
-            if (root.pendingCount > 0)
-                root.pendingCount -= 1
 
-            if (!providerId) {
+            if (!providerId || !root.providerEnabled(providerId))
                 return
-            }
 
             if (!stdout) {
                 root.applyPayload(providerId, {
                     provider: providerId,
                     displayName: providerId,
-                    status: "collector_error",
-                    error: stderr || "Collector produced no output"
+                    status: "collector_error"
                 })
                 return
             }
@@ -283,8 +464,7 @@ PlasmoidItem {
                 root.applyPayload(providerId, {
                     provider: providerId,
                     displayName: providerId,
-                    status: "collector_error",
-                    error: "Malformed collector output"
+                    status: "collector_error"
                 })
             }
         }
@@ -306,7 +486,7 @@ PlasmoidItem {
         PlasmaComponents.Label {
             id: compactLabel
             anchors.centerIn: parent
-            text: "AI"
+            text: root.compactText
             font.bold: true
         }
     }
@@ -342,10 +522,19 @@ PlasmoidItem {
                 opacity: 0.8
             }
 
+            PlasmaComponents.Label {
+                Layout.fillWidth: true
+                visible: providersModel.count === 0
+                wrapMode: Text.WordWrap
+                text: "No providers enabled. Open widget settings to enable Codex, Cursor, or StepFun."
+                opacity: 0.85
+            }
+
             Kirigami.Separator {
                 Layout.fillWidth: true
                 Layout.topMargin: Kirigami.Units.smallSpacing
                 Layout.bottomMargin: Kirigami.Units.smallSpacing
+                visible: providersModel.count > 0
             }
 
             Repeater {
@@ -381,14 +570,13 @@ PlasmoidItem {
 
                     PlasmaComponents.Label {
                         Layout.fillWidth: true
-                        visible: model.hasQuota
+                        visible: model.hasQuota && model.planName.length > 0
                         text: model.planName
                         opacity: 0.85
                     }
 
                     Repeater {
                         model: providerBlock.usageLines
-
                         delegate: ColumnLayout {
                             Layout.fillWidth: true
                             spacing: Kirigami.Units.smallSpacing / 2
@@ -437,30 +625,12 @@ PlasmoidItem {
 
                     PlasmaComponents.Label {
                         Layout.fillWidth: true
-                        visible: model.stale && model.hasQuota
+                        visible: model.statusLabel.length > 0
                         wrapMode: Text.WordWrap
-                        text: "Cached" + (model.fetchedAtText.length ? (" — updated " + model.fetchedAtText) : "")
-                        color: Kirigami.Theme.neutralTextColor
-                    }
-
-                    PlasmaComponents.Label {
-                        Layout.fillWidth: true
-                        visible: model.stale && model.errorText.length > 0
-                        wrapMode: Text.WordWrap
-                        text: model.errorText
-                        color: Kirigami.Theme.negativeTextColor
-                    }
-
-                    PlasmaComponents.Label {
-                        Layout.fillWidth: true
-                        visible: !model.hasQuota
-                        wrapMode: Text.WordWrap
-                        text: root.loading && model.statusCode === "idle"
-                            ? "Loading usage…"
-                            : (model.errorText.length ? model.errorText : "Usage unavailable")
-                        color: (root.loading && model.statusCode === "idle")
+                        text: model.statusLabel
+                        color: (model.statusCode === "ok")
                             ? Kirigami.Theme.textColor
-                            : Kirigami.Theme.negativeTextColor
+                            : (model.stale ? Kirigami.Theme.neutralTextColor : Kirigami.Theme.negativeTextColor)
                     }
 
                     Kirigami.Separator {
@@ -482,14 +652,14 @@ PlasmoidItem {
                 spacing: Kirigami.Units.smallSpacing
 
                 PlasmaComponents.Button {
-                    text: root.loading ? "Refreshing…" : "Refresh"
-                    enabled: !root.loading
+                    text: root.anyInFlight ? "Refreshing…" : "Refresh"
+                    enabled: providersModel.count > 0
                     onClicked: root.refreshUsage()
                 }
 
                 PlasmaComponents.Label {
                     Layout.fillWidth: true
-                    text: root.loading ? "Running ai-usage…" : ""
+                    text: root.anyInFlight ? "Updating…" : ""
                     opacity: 0.7
                     elide: Text.ElideRight
                 }

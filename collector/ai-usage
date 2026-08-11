@@ -65,10 +65,62 @@ def cmd_auth(args: argparse.Namespace) -> int:
                 eprint("No token provided")
                 return 1
             secret_set("stepfun", "oasis-token", token)
-            print("configured")
-            return 0
+            # Verify without printing secrets.
+            try:
+                from providers.stepfun import (  # noqa: WPS433
+                    StepFunProvider,
+                    derive_oasis_app_id,
+                    derive_oasis_webid,
+                )
+
+                webid = derive_oasis_webid(token)
+                if not webid:
+                    print("auth_failed")
+                    return 1
+                app_id = derive_oasis_app_id(token) or "20700"
+                StepFunProvider()._post_json(  # noqa: SLF001
+                    "/api/step.openapi.devcenter.Dashboard/QueryStepPlanRateLimit",
+                    token,
+                    webid,
+                    app_id,
+                    {},
+                )
+                print("working")
+                return 0
+            except Exception:  # noqa: BLE001
+                print("auth_failed")
+                return 1
         if action == "status":
-            print("configured" if secret_configured("stepfun", "oasis-token") else "missing")
+            if not secret_configured("stepfun", "oasis-token"):
+                print("missing")
+                return 0
+            try:
+                from providers.stepfun import (  # noqa: WPS433
+                    StepFunProvider,
+                    derive_oasis_app_id,
+                    derive_oasis_webid,
+                )
+                from secret_store import get as secret_get
+
+                token = secret_get("stepfun", "oasis-token")
+                if not token:
+                    print("missing")
+                    return 0
+                webid = derive_oasis_webid(token)
+                if not webid:
+                    print("auth_failed")
+                    return 0
+                app_id = derive_oasis_app_id(token) or "20700"
+                StepFunProvider()._post_json(  # noqa: SLF001
+                    "/api/step.openapi.devcenter.Dashboard/QueryStepPlanRateLimit",
+                    token,
+                    webid,
+                    app_id,
+                    {},
+                )
+                print("working")
+            except Exception:  # noqa: BLE001
+                print("auth_failed")
             return 0
         if action == "clear":
             secret_delete("stepfun", "oasis-token")

@@ -1,41 +1,112 @@
 # Horizon
 
-KDE Plasma widget that shows remaining limits / quotas for AI coding tools.
+KDE Plasma widget that shows remaining quotas for the AI coding tools you already use.
 
-**Phase 4 status:** Codex, Cursor, and StepFun appear together through a shared provider model, XDG last-successful usage cache, and stale UI fallback.
+Compact panel: one meaningful remaining % (the lowest among enabled providers).  
+Popup: per-provider plan, meters, reset times, and clear stale/auth/error labels.
 
-Architecture docs: [provider-contract](docs/provider-contract.md), [usage-schema](docs/usage-schema.md), [cache](docs/cache.md), [security](docs/security.md).
+## Supported providers
 
-Provider notes: [Codex](docs/providers/codex.md), [Cursor](docs/providers/cursor.md), [StepFun](docs/providers/stepfun.md).
+| Provider | Auth |
+|----------|------|
+| **OpenAI Codex** (ChatGPT Plus) | Reuses `~/.codex/auth.json` |
+| **Cursor** | Reads local Cursor session (`state.vscdb`) read-only |
+| **StepFun Step Plan** | User-supplied Oasis token stored only in **KWallet** |
 
-## Quick start
+Horizon does **not** implement provider login/OAuth, browser cookie import, or password storage.
 
-See [docs/development.md](docs/development.md).
+## Install
+
+Dependencies: Plasma 6, Python 3, Python D-Bus (`python3-dbus`) for KWallet, `kdialog` for optional settings token entry.
 
 ```bash
-mkdir -p ~/.local/bin
-ln -sfn "$PWD/collector/ai-usage" ~/.local/bin/ai-usage
-
-ai-usage status codex --json | jq .
-ai-usage status cursor --json | jq .
-
-# StepFun has no local credential store — paste an existing Oasis token into KWallet:
-ai-usage auth stepfun set
-ai-usage status stepfun --json | jq .
-
-kpackagetool6 --type Plasma/Applet --install plasmoid
-# after edits:
-kpackagetool6 --type Plasma/Applet --upgrade plasmoid
+git clone https://github.com/radilabs/horizon.git
+cd horizon
+./scripts/install.sh
 ```
 
-Plugin Id: `com.radilabs.horizon`
+This installs:
 
-## Credentials
+* collector to `~/.local/share/horizon/collector/`
+* launcher to `~/.local/bin/ai-usage` (not a symlink into the git checkout)
+* plasmoid `com.radilabs.horizon`
 
-Horizon does **not** implement provider login flows.
+Add **Horizon** from the Plasma widget picker.
 
-* **Codex** — reuses `~/.codex/auth.json` (provider-owned).
-* **Cursor** — reads Cursor `state.vscdb` transiently (provider-owned; never modified).
-* **StepFun** — stores a user-supplied Oasis token in the OS credential store (KWallet) only. Never in config, cache, env files, or the repo. See ADR-0009.
+Upgrade / uninstall:
 
-Manage StepFun token: `ai-usage auth stepfun {set,status,clear}` (no `--token` flag).
+```bash
+./scripts/upgrade.sh
+./scripts/uninstall.sh          # keeps KWallet token + usage cache
+./scripts/uninstall.sh --purge  # also removes usage cache; still keeps KWallet token
+```
+
+## Authentication
+
+### Codex
+
+Sign in with the Codex/ChatGPT tooling so `~/.codex/auth.json` exists. Horizon reuses it.
+
+```bash
+ai-usage status codex --json
+```
+
+### Cursor
+
+Stay signed in to the Cursor app. Horizon reads session state transiently and never modifies it.
+
+```bash
+ai-usage status cursor --json
+```
+
+### StepFun
+
+Paste an existing Oasis token (from a StepFun web session). Stored only in KWallet.
+
+```bash
+ai-usage auth stepfun set      # secure prompt; no --token flag
+ai-usage auth stepfun status   # configured | missing
+ai-usage auth stepfun clear
+ai-usage status stepfun --json
+```
+
+Or use **Widget settings → StepFun credential**:
+
+1. Copy the `Oasis-Token` cookie from `platform.stepfun.ai`
+2. Click **Save token** (optional: paste into the field first as a visual check)
+3. Confirm status is `Configured · working`
+
+Status is `Configured · working` only after StepFun accepts the token — not merely that something is stored. The token is never written to Plasma config or the usage cache.
+
+## Configuration
+
+Widget settings (right-click → Configure Horizon):
+
+* Enable/disable **Codex**, **Cursor**, **StepFun**
+* Refresh interval: 5 / 10 / **15** / 30 / 60 minutes (default 15)
+* StepFun token management
+
+Disabled providers are not queried, refreshed, shown, or included in the compact summary. Disabling does **not** delete credentials.
+
+## Security
+
+* Prefer provider-owned credentials (Codex, Cursor)
+* StepFun token: OS credential store only (ADR-0009)
+* Usage cache (`~/.cache/horizon/usage-*.json`): normalized non-secret data only
+* No telemetry / analytics / cloud sync
+
+See [docs/security.md](docs/security.md).
+
+## Known limitations
+
+Quota APIs for these tools are **unofficial** and can break when providers change endpoints or auth. Details:
+
+* [docs/providers/codex.md](docs/providers/codex.md)
+* [docs/providers/cursor.md](docs/providers/cursor.md)
+* [docs/providers/stepfun.md](docs/providers/stepfun.md)
+
+Architecture: [provider-contract](docs/provider-contract.md), [usage-schema](docs/usage-schema.md), [cache](docs/cache.md).  
+Development notes: [docs/development.md](docs/development.md).  
+Release process: [docs/release.md](docs/release.md).
+
+Version: **0.1.0**

@@ -11,10 +11,12 @@ Browser cookies (e.g. Zen) are **not** the primary credential source and must no
 ## Credential CLI
 
 ```bash
-ai-usage auth stepfun set      # secure prompt (no --token)
-ai-usage auth stepfun status   # configured | missing
+ai-usage auth stepfun set      # secure prompt (no --token); verifies live
+ai-usage auth stepfun status   # working | auth_failed | missing
 ai-usage auth stepfun clear
 ```
+
+Widget settings uses the same meanings: **Configured · working** only after StepFun accepts the token (not merely that KWallet has an entry).
 
 Storage: KWallet wallet `kdewallet`, folder `Horizon`, entry `stepfun/oasis-token`.
 
