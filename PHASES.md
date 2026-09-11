@@ -1,5 +1,7 @@
 # Horizon — Phase Contracts
 
+> **Factory alignment note:** Phases 0–5 are accepted historical contracts created before Horizon adopted the current Stage-aware Factory shell. They are preserved without retrospective restructuring. No Stage or Phase is currently authorized. Any future significant capability must be introduced through a newly authorized Stage/Phase contract before executable task files are created.
+
 These phases define immutable execution boundaries.
 
 Tasks inside a phase may be refined as implementation progresses, but the phase goal, scope, exclusions, acceptance criteria, and handoff contract must not be changed during implementation.
