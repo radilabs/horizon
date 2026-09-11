@@ -1,5 +1,8 @@
-# Credential and secret ignore rules for Horizon
+# Factory runtime artifacts
+reports/*
+!reports/README.md
 
+# Credential and secret ignore rules for Horizon
 .env
 .env.*
 *.token
