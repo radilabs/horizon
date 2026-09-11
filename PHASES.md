@@ -1,6 +1,6 @@
 # Horizon — Phase Contracts
 
-> **Factory alignment note:** Phases 0–5 are accepted historical contracts created before Horizon adopted the current Stage-aware Factory shell. They are preserved without retrospective restructuring. No Stage or Phase is currently authorized. Any future significant capability must be introduced through a newly authorized Stage/Phase contract before executable task files are created.
+> **Factory alignment note:** Phases 0–5 are accepted historical contracts created before Horizon adopted the current Stage-aware Factory shell. They are preserved without retrospective restructuring. Stage 1 / Phase 6 is the first work authorized under the current Stage-aware Factory lifecycle.
 
 These phases define immutable execution boundaries.
 
@@ -415,3 +415,96 @@ Phase 5 is complete when:
 Then STOP.
 
 Any additional provider or significant capability requires a new phase contract.
+
+---
+
+# Stage 1 — Reliability & Provider Resilience
+
+## Goal
+
+Strengthen reliability of Horizon's existing provider integrations after the 0.1.0 baseline without adding unrelated providers or expanding Horizon into an account-management product.
+
+## Entry Conditions
+
+* Phase 5 is accepted.
+* Horizon 0.1.0 core three-provider functionality exists.
+* Current Stage-aware Factory control files are present.
+
+## Exit Conditions
+
+Stage 1 may be accepted only when all explicitly authorized Stage 1 phases are accepted, core Codex/Cursor/StepFun behavior remains intact, security boundaries remain documented, and no deferred provider expansion has been implemented opportunistically.
+
+Only Phase 6 is authorized at Stage 1 creation time.
+
+---
+
+# Phase 6 — StepFun Auth Resilience
+
+## Goal
+
+Determine whether Horizon can safely recover from StepFun Oasis token expiry using only credential material it already stores, and implement bounded automatic renewal if the current Oasis mechanism supports it without username/password login, browser credential import, or a general authentication framework.
+
+If automatic renewal cannot be safely proven using existing stored credential material alone, retain manual replacement as the supported mechanism and improve expiry handling/documentation without unsupported workarounds.
+
+## Entry Conditions
+
+* Phase 5 handoff is accepted.
+* Existing StepFun usage works with a valid manually supplied Oasis token.
+* StepFun token storage remains KWallet-backed.
+* Stage 1 / Phase 6 is explicitly authorized in `TASKS.md`.
+
+## Scope
+
+* Characterize the currently stored Oasis token structure and expiry behavior using sanitized evidence.
+* Determine whether existing stored material includes a usable refresh credential.
+* Investigate the current StepFun/Oasis refresh endpoint, required headers, WebID/AppID behavior, token rotation semantics, and failure behavior.
+* Review existing implementations where useful, but verify behavior against the current StepFun platform.
+* If safe refresh is supported using existing stored token material alone, implement one bounded automatic refresh/retry path inside the StepFun provider/auth helper.
+* Validate a refreshed token before replacing the KWallet value.
+* Preserve clear manual Set/Replace Token behavior as fallback.
+* Improve expired/rejected-token diagnostics where needed.
+* Update StepFun/security documentation with the proven mechanism and limitations.
+* Verify Codex/Cursor isolation and existing cache/refresh behavior.
+
+## Explicit Exclusions
+
+* StepFun username/password login.
+* Storing StepFun username/password.
+* Browser cookie/session import.
+* Reading Zen or any other browser profile automatically.
+* Building a generic Oasis framework.
+* Building a general-purpose authentication/account manager.
+* Adding Groq or any other provider.
+* Subscription or billing management.
+* Unbounded token-refresh loops.
+* Changes to Codex or Cursor authentication unless required to fix a demonstrated regression introduced by this phase.
+
+## Acceptance Criteria
+
+1. The current Oasis credential structure and expiry/refresh capability are documented from sanitized evidence.
+2. Horizon conclusively determines whether automatic StepFun renewal is safely possible using existing stored credential material alone.
+3. If supported, an expired/rejected StepFun credential can be renewed with at most one bounded refresh attempt, the renewed credential is validated before KWallet replacement, and live usage succeeds afterward.
+4. If unsupported, Horizon does not implement an unsafe workaround; expired/rejected credentials remain a clear `auth_unavailable` state with actionable manual replacement guidance.
+5. No Oasis token, refresh token, JWT payload, password, cookie, or other secret is exposed in repo, config, cache, logs, stdout/stderr, process arguments, docs, or task evidence.
+6. StepFun refresh/recovery failure does not affect Codex or Cursor.
+7. Existing periodic/manual refresh behavior does not create an auth-refresh loop or overlapping StepFun recovery requests.
+8. StepFun provider/security documentation accurately describes the current supported recovery path and upstream fragility.
+
+## Handoff Contract
+
+Before Phase 6 can be declared complete:
+
+* All acceptance criteria must be supported by direct evidence.
+* Valid-token and expired/rejected-token paths must be tested.
+* If automatic refresh is implemented, refresh success and failure paths must be tested and KWallet rotation behavior verified without exposing token material.
+* Codex and Cursor must still work independently.
+* Secret audit must pass.
+* Durable technical findings must be promoted to `docs/`; durable architectural/security decisions must be recorded only if future work must respect them.
+* Deferred work must be recorded.
+* Mandatory independent Watcher verification must return PASS.
+* Project owners must explicitly accept the phase after Watcher PASS.
+* `docs/handoffs/phase-6.md` is created as the accepted-state snapshot.
+
+Then STOP.
+
+Do not begin Groq discovery, another provider, or any additional capability phase automatically.
