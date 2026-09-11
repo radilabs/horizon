@@ -6,11 +6,13 @@ Only an explicitly authorized phase may be executed.
 
 ## Current Execution
 
-- **Current stage:** none authorized
-- **Current phase:** none authorized
-- **Status:** accepted through Phase 5 / Horizon 0.1.0 release candidate
+- **Current stage:** Stage 1 — Reliability & Provider Resilience
+- **Current phase:** Phase 6 — StepFun Auth Resilience
+- **Status:** authorized
 
-No task file is currently executable.
+Executable task file:
+
+- `tasks/phase-6-stepfun-auth-resilience.md`
 
 ## Historical Task Files
 
@@ -22,10 +24,11 @@ tasks/
 ├── phase-2-provider-architecture.md
 ├── phase-3-cursor.md
 ├── phase-4-stepfun.md
-└── phase-5-polish.md
+├── phase-5-polish.md
+└── phase-6-stepfun-auth-resilience.md   # CURRENT / AUTHORIZED
 ```
 
-These files are retained as historical execution evidence. Their presence does not authorize further work.
+Phases 0–5 are retained as historical execution evidence. Their presence does not authorize further work.
 
 ## History
 
@@ -33,16 +36,27 @@ Last completed phase: **Phase 5 — Operational Polish**.
 
 Phases 0–5 predate adoption of the current Stage-aware Factory shell. Their accepted history is preserved as-is and must not be rewritten retrospectively.
 
-## Future Work Rule
+Stage 1 / Phase 6 is the first work authorized under the current Stage-aware Factory lifecycle.
 
-Any additional provider or significant capability requires a newly authorized Stage/Phase contract before a new executable task file is created.
+## Current Boundary
 
-Future task files must not be created in advance.
+Phase 6 may improve resilience of the existing StepFun Oasis authentication path only.
+
+It must not:
+
+- add Groq or any other provider;
+- implement StepFun username/password login;
+- import browser credentials;
+- create a general Oasis/authentication framework;
+- expand into account or subscription management.
+
+Out-of-scope findings go to Deferred Work.
 
 ## Authority
 
 - Product definition and Factory rules: `PROJECT.md`
-- Historical roadmap and immutable phase contracts: `PHASES.md`
-- Accepted phase snapshots: `docs/handoffs/`
+- Stage/phase contracts: `PHASES.md`
+- Current executable work: `tasks/phase-6-stepfun-auth-resilience.md`
+- Accepted historical snapshots: `docs/handoffs/`
 
-When a future phase is authorized, update this file and `tasks/README.md` before execution begins.
+After Watcher PASS and explicit owner acceptance, update execution state, write the accepted Phase 6 handoff, checkpoint the phase, and STOP.
