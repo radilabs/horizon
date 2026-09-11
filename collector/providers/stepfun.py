@@ -5,12 +5,15 @@ from __future__ import annotations
 import base64
 import json
 import os
+import threading
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from typing import Any
 
-from secret_store import SecretStoreError, get as secret_get
+from secret_store import SecretStoreError
+from secret_store import get as secret_get
+from secret_store import set as secret_set
 
 from . import ProviderError
 
@@ -22,7 +25,9 @@ DEFAULT_API_BASE = "https://platform.stepfun.ai"
 # (commonly 20700). Prefer deriving app id from the token.
 RATE_LIMIT_PATH = "/api/step.openapi.devcenter.Dashboard/QueryStepPlanRateLimit"
 PLAN_STATUS_PATH = "/api/step.openapi.devcenter.Dashboard/GetStepPlanStatus"
+REFRESH_PATH = "/passport/proto.api.passport.v1.PassportService/RefreshToken"
 FALLBACK_OASIS_APP_ID = "20700"
+_REFRESH_LOCK = threading.Lock()
 
 
 class StepFunProvider:
@@ -41,7 +46,7 @@ class StepFunProvider:
             )
 
     def fetch_usage(self, *, force_refresh: bool = False) -> dict[str, Any]:
-        del force_refresh  # Horizon does not refresh/mutate StepFun tokens.
+        del force_refresh
         token = self._load_token()
         if not token:
             raise ProviderError(
@@ -55,9 +60,73 @@ class StepFunProvider:
                 "StepFun Oasis token missing device_id (cannot derive Oasis-Webid)",
             )
         app_id = derive_oasis_app_id(token) or FALLBACK_OASIS_APP_ID
-        usage = self._post_json(RATE_LIMIT_PATH, token, webid, app_id, {})
+        try:
+            usage = self._post_json(RATE_LIMIT_PATH, token, webid, app_id, {})
+        except ProviderError as exc:
+            if exc.code != "auth_unavailable":
+                raise
+            token = self._recover_after_auth_rejection(token)
+            webid = derive_oasis_webid(token) or webid
+            app_id = derive_oasis_app_id(token) or app_id
+            usage = self._post_json(RATE_LIMIT_PATH, token, webid, app_id, {})
         plan_label = self._plan_label(token, webid, app_id)
         return self._normalize(usage, plan_label)
+
+    def _recover_after_auth_rejection(self, previous_token: str) -> str:
+        """One bounded Oasis refresh using stored material only. Replaces KWallet only after validation."""
+        with _REFRESH_LOCK:
+            current = self._load_token() or previous_token
+            webid = derive_oasis_webid(current)
+            if not webid:
+                raise ProviderError(
+                    "auth_unavailable",
+                    "StepFun Oasis token rejected; replace it in widget settings or: ai-usage auth stepfun set",
+                )
+            app_id = derive_oasis_app_id(current) or FALLBACK_OASIS_APP_ID
+            if current != previous_token:
+                try:
+                    self._post_json(RATE_LIMIT_PATH, current, webid, app_id, {})
+                    return current
+                except ProviderError as exc:
+                    if exc.code != "auth_unavailable":
+                        raise
+            try:
+                refreshed = self._refresh_oasis_token(current, webid, app_id)
+            except ProviderError:
+                raise ProviderError(
+                    "auth_unavailable",
+                    "StepFun Oasis token rejected; replace it in widget settings or: ai-usage auth stepfun set",
+                ) from None
+            refreshed_webid = derive_oasis_webid(refreshed) or webid
+            refreshed_app = derive_oasis_app_id(refreshed) or app_id
+            try:
+                self._post_json(RATE_LIMIT_PATH, refreshed, refreshed_webid, refreshed_app, {})
+            except ProviderError:
+                # Keep the previous KWallet value.
+                raise ProviderError(
+                    "auth_unavailable",
+                    "StepFun Oasis token rejected; replace it in widget settings or: ai-usage auth stepfun set",
+                ) from None
+            try:
+                secret_set(PROVIDER_ID, SECRET_NAME, refreshed)
+            except SecretStoreError:
+                # Validated token still used for this request; store write failure is not a silent wipe.
+                pass
+            return refreshed
+
+    def _refresh_oasis_token(self, token: str, webid: str, app_id: str) -> str:
+        data = self._post_json(
+            REFRESH_PATH,
+            token,
+            webid,
+            app_id,
+            {},
+            oasis_token_header=True,
+        )
+        combined = combine_oasis_token_from_refresh(data)
+        if not combined:
+            raise ProviderError("auth_unavailable", "StepFun refresh response had no usable token")
+        return combined
 
     def _load_token(self) -> str | None:
         try:
@@ -82,7 +151,14 @@ class StepFunProvider:
         return "Step Plan"
 
     def _post_json(
-        self, path: str, token: str, webid: str, app_id: str, body: dict[str, Any]
+        self,
+        path: str,
+        token: str,
+        webid: str,
+        app_id: str,
+        body: dict[str, Any],
+        *,
+        oasis_token_header: bool = False,
     ) -> dict[str, Any]:
         url = self.api_base + path
         raw_body = json.dumps(body).encode()
@@ -92,6 +168,8 @@ class StepFunProvider:
         req.add_header("oasis-appid", str(app_id))
         req.add_header("oasis-platform", "web")
         req.add_header("oasis-webid", webid)
+        if oasis_token_header:
+            req.add_header("Oasis-Token", token)
         req.add_header("Cookie", f"Oasis-Token={token}; Oasis-Webid={webid}")
         req.add_header("Origin", self.api_base)
         req.add_header("Referer", self.api_base + "/")
@@ -162,6 +240,25 @@ class StepFunProvider:
         if len(breakdown) > 1:
             out["secondaryRemainingPercent"] = breakdown[1]["remainingPercent"]
         return out
+
+
+def combine_oasis_token_from_refresh(payload: dict[str, Any]) -> str | None:
+    """Build stored Oasis token from a RefreshToken JSON body. Never logs values."""
+    access = _token_raw(payload.get("accessToken") or payload.get("access_token"))
+    refresh = _token_raw(payload.get("refreshToken") or payload.get("refresh_token"))
+    if access and refresh:
+        return f"{access}...{refresh}"
+    return access or refresh
+
+
+def _token_raw(value: Any) -> str | None:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    if isinstance(value, dict):
+        raw = value.get("raw")
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+    return None
 
 
 def derive_oasis_webid(token: str) -> str | None:

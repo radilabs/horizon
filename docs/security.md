@@ -27,6 +27,7 @@ Credentials must be retained only in memory for the duration of that request and
 * Or widget settings → StepFun credential: copy Oasis-Token, then **Save token** (helper reads the clipboard so the secret never appears in process arguments; status becomes `Configured · working` only after a live verify)
 * Status/clear: `ai-usage auth stepfun status` / `ai-usage auth stepfun clear`
 * Storage: KWallet folder `Horizon`, entry `stepfun/oasis-token`
+* On usage `auth_unavailable`, the collector may attempt **one** unofficial `RefreshToken` using that stored value, validate the result against the usage API, then write KWallet only if validation succeeds (ADR-0010)
 * Never place the token in Plasma config, cache, docs, or evidence
 
 ## Documentation and evidence

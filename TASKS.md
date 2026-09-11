@@ -6,13 +6,13 @@ Only an explicitly authorized phase may be executed.
 
 ## Current Execution
 
-- **Current stage:** Stage 1 — Reliability & Provider Resilience
-- **Current phase:** Phase 6 — StepFun Auth Resilience
-- **Status:** authorized
+- **Current stage:** none authorized
+- **Current phase:** none authorized
+- **Status:** idle
 
-Executable task file:
+No executable task file.
 
-- `tasks/phase-6-stepfun-auth-resilience.md`
+Stage 1 remains an open product stage in `PHASES.md`, but **no Stage 1 phase is currently authorized**. Phase 6 is accepted. Do not begin another phase until owners explicitly authorize it.
 
 ## Historical Task Files
 
@@ -25,38 +25,24 @@ tasks/
 ├── phase-3-cursor.md
 ├── phase-4-stepfun.md
 ├── phase-5-polish.md
-└── phase-6-stepfun-auth-resilience.md   # CURRENT / AUTHORIZED
+└── phase-6-stepfun-auth-resilience.md   # ACCEPTED (historical)
 ```
 
-Phases 0–5 are retained as historical execution evidence. Their presence does not authorize further work.
+Historical task files are execution evidence only. Their presence does not authorize further work.
 
 ## History
 
-Last completed phase: **Phase 5 — Operational Polish**.
+Last completed phase: **Phase 6 — StepFun Auth Resilience** (accepted 2026-09-11; Horizon **0.1.1**).
 
 Phases 0–5 predate adoption of the current Stage-aware Factory shell. Their accepted history is preserved as-is and must not be rewritten retrospectively.
 
-Stage 1 / Phase 6 is the first work authorized under the current Stage-aware Factory lifecycle.
-
-## Current Boundary
-
-Phase 6 may improve resilience of the existing StepFun Oasis authentication path only.
-
-It must not:
-
-- add Groq or any other provider;
-- implement StepFun username/password login;
-- import browser credentials;
-- create a general Oasis/authentication framework;
-- expand into account or subscription management.
-
-Out-of-scope findings go to Deferred Work.
+Stage 1 / Phase 6 is the first work completed under the current Stage-aware Factory lifecycle (Watcher PASS + owner acceptance).
 
 ## Authority
 
 - Product definition and Factory rules: `PROJECT.md`
 - Stage/phase contracts: `PHASES.md`
-- Current executable work: `tasks/phase-6-stepfun-auth-resilience.md`
-- Accepted historical snapshots: `docs/handoffs/`
+- Current executable work: **none**
+- Accepted snapshots: `docs/handoffs/`
 
-After Watcher PASS and explicit owner acceptance, update execution state, write the accepted Phase 6 handoff, checkpoint the phase, and STOP.
+Do not create or execute a later phase (including Groq) until it is explicitly authorized.

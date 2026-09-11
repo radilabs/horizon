@@ -2,6 +2,10 @@
 
 Phase contract: `PHASES.md` → Stage 1 / **Phase 6 — StepFun Auth Resilience**.
 
+**Status: ACCEPTED** (2026-09-11). This file is historical execution evidence. It is **not** executable.
+
+Accepted snapshot: `docs/handoffs/phase-6.md`. Horizon **0.1.1**.
+
 Phase 6 is authorized only after the Stage 1 / Phase 6 contract and execution state are merged.
 
 ## Goal
@@ -202,3 +206,80 @@ Record, but do not implement:
 - generic Oasis framework
 - additional providers including Groq
 - account/subscription management
+
+## Execution evidence (Coder, 2026-09-11)
+
+**Path proven:** `AUTOMATIC REFRESH SUPPORTED`
+
+### P6-T0 Baseline (before code change)
+
+Commands: `ai-usage status {codex,cursor,stepfun} --json`, `ai-usage auth stepfun status`
+
+| Provider | Result |
+|----------|--------|
+| Codex | `ok` / ChatGPT Plus / 100% |
+| Cursor | `ok` / Pro / 96% |
+| StepFun | usage HTTP 401 → cache `stale` Plus 95%; `auth stepfun status` → `auth_failed` |
+| KWallet | configured; wallet `kdewallet`, folder `Horizon`, entry `stepfun/oasis-token` |
+
+### P6-T1 Credential (sanitized)
+
+Stored pair (`...` separator), length 628, sha12 `eb2819b3a0e0`.
+
+- Access JWT claim keys: `activated, age, baned, create_at, exp, mode, oasis_id, organization_id, role_in_organization, version`. `exp` was 2026-09-07T00:33:28+02:00. No `device_id` / `app_id`.
+- Refresh JWT claim keys: `app_id, device_id, exp, oasis_id, oasis_r_at, platform, version`. `exp` was 2026-09-10T08:35:05+02:00. `app_id` 20700. `device_id` present.
+- Dashboard requests use the **full stored pair** as `Oasis-Token`; WebID/app id from refresh half.
+
+### P6-T2 Refresh discovery (live, unofficial)
+
+`POST https://platform.stepfun.ai/passport/proto.api.passport.v1.PassportService/RefreshToken` with stored pair, `oasis-appid=20700`, derived webid: HTTP 200, JSON keys `accessToken`, `refreshToken` (`raw` present). Same host with app `10300`: HTTP 400 `oasis header is invalid`. CodexBar `.com`+`10300` also returned 200 in a probe but is **not** the usage host for this account.
+
+JWT `exp` on the refresh half being past did **not** prevent `RefreshToken` from succeeding.
+
+### P6-T3 Decision
+
+Path A. ADR-0010 records the durable security/architecture choice.
+
+### P6-T4 Implementation
+
+`collector/providers/stepfun.py`: one locked recover per auth rejection; validate usage before `secret_set`; no second refresh if the retry still fails. CLI/settings verify via `fetch_usage`.
+
+### P6-T5 Security
+
+- Unit tests never contain live JWTs.
+- `git grep` only hits documented field names / Cursor Bearer description.
+- Caches: no `oasis` / `eyJ` / access_token / cookie in `usage-*.json`.
+- Live recover printed only sha12 + exp timestamps.
+
+### P6-T6 Tests
+
+`python3 -m unittest tests.test_stepfun_oasis_refresh -v` → 8 OK (valid no-refresh; refresh validates before set; refresh HTTP fail keeps store; malformed keeps store; validate fail keeps store; one refresh only).
+
+Live recover: sha12 `eb2819b3a0e0` → `b0909bb6f0fb`; access exp now 2026-09-11T14:03:34+02:00; refresh exp 2026-10-11T12:03:34+02:00; `fetch_status ok Plus 100`. Second fetch sha **unchanged**. Codex/Cursor still `ok` after recover.
+
+Rejected-token live wipe was not performed (would require destroying a working session); covered by unit tests.
+
+### P6-T7 Docs
+
+Updated `docs/providers/stepfun.md`, `docs/security.md`, `README.md`, `decisions/0010-bounded-stepfun-oasis-refresh.md`, settings copy for failed refresh.
+
+### P6-T8
+
+Watcher PASS: `reports/stage-1-phase-6-watcher-1.md` (2026-09-11).
+
+Owner acceptance granted 2026-09-11 after the owner tested the installed artifact and confirmed it works.
+
+Accepted snapshot: `docs/handoffs/phase-6.md`.
+
+**PHASE 6: ACCEPTED.** No later phase authorized.
+
+## Deferred Work (recorded)
+
+- StepFun username/password login
+- browser/session import (including Zen)
+- generic Oasis framework
+- additional providers including Groq
+- account/subscription management
+- Notifications (still Phase 5 leftover)
+- Official StepFun public API for quotas (not used; dashboard/passport remain unofficial)
+

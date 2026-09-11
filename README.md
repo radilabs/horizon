@@ -61,11 +61,11 @@ ai-usage status cursor --json
 
 ### StepFun
 
-Paste an existing Oasis token (from a StepFun web session). Stored only in KWallet.
+Paste an existing Oasis token (from a StepFun web session). Stored only in KWallet. If the stored pair is still accepted by StepFun’s unofficial refresh endpoint, Horizon performs **one** automatic refresh and writes KWallet only after a live usage check succeeds.
 
 ```bash
 ai-usage auth stepfun set      # secure prompt; no --token flag
-ai-usage auth stepfun status   # configured | missing
+ai-usage auth stepfun status   # working | auth_failed | missing
 ai-usage auth stepfun clear
 ai-usage status stepfun --json
 ```
@@ -91,7 +91,7 @@ Disabled providers are not queried, refreshed, shown, or included in the compact
 ## Security
 
 * Prefer provider-owned credentials (Codex, Cursor)
-* StepFun token: OS credential store only (ADR-0009)
+* StepFun token: OS credential store only (ADR-0009); bounded Oasis refresh write-back (ADR-0010)
 * Usage cache (`~/.cache/horizon/usage-*.json`): normalized non-secret data only
 * No telemetry / analytics / cloud sync
 
@@ -109,4 +109,4 @@ Architecture: [provider-contract](docs/provider-contract.md), [usage-schema](doc
 Development notes: [docs/development.md](docs/development.md).  
 Release process: [docs/release.md](docs/release.md).
 
-Version: **0.1.0**
+Version: **0.1.1**

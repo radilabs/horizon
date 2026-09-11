@@ -1,22 +1,22 @@
 # Task Execution
 
-Current stage: **Stage 1 — Reliability & Provider Resilience**  
-Current phase: **Phase 6 — StepFun Auth Resilience**  
-Status: **authorized**
+Current stage: **none authorized**  
+Current phase: **none authorized**  
+Status: **idle**
 
-Current executable task file:
+No executable task file.
 
-- `tasks/phase-6-stepfun-auth-resilience.md`
+Last accepted phase: **Phase 6 — StepFun Auth Resilience** (`docs/handoffs/phase-6.md`, Horizon 0.1.1).
 
 Historical phase task files remain under `tasks/` as execution evidence only. Their presence does not authorize additional work.
 
-## Execution Order
+## Execution Order (when a phase is authorized)
 
 1. Read `PROJECT.md`.
 2. Read `PHASES.md`.
 3. Read `TASKS.md`.
-4. Read `tasks/phase-6-stepfun-auth-resilience.md`.
-5. Confirm Stage 1 / Phase 6 remains authorized.
+4. Read the currently authorized phase task file.
+5. Confirm that file is the only authorized work.
 6. Execute the first incomplete task.
 7. Do not work outside the active phase.
 8. Discoveries outside scope go to Deferred Work.
@@ -28,4 +28,4 @@ Do not create future phase task files before authorization.
 
 Phases 0–5 predate the current Stage-aware Factory shell. Do not rewrite their accepted history retrospectively.
 
-Phase 6 must STOP before any Groq discovery or other provider/capability work begins.
+If `TASKS.md` says no phase is authorized, STOP.

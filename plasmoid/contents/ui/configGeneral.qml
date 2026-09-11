@@ -39,7 +39,7 @@ ColumnLayout {
             stepfunDetail = "Token accepted by StepFun."
         } else if (line === "auth_failed") {
             stepfunStatus = "Configured · needs authentication"
-            stepfunDetail = "A token is stored, but StepFun rejected it. Copy a fresh Oasis-Token from platform.stepfun.ai and save again."
+            stepfunDetail = "A token is stored, but StepFun rejected it after a single automatic refresh attempt. Copy a fresh Oasis-Token from platform.stepfun.ai and save again."
         } else if (line === "missing") {
             stepfunStatus = "Not configured"
             stepfunDetail = ""

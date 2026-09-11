@@ -27,9 +27,40 @@ Observed Oasis token shapes:
 * bare JWT, or
 * `access...refresh` pair joined by literal `...`
 
-`Oasis-Webid` must match the token’s `device_id` claim. Horizon derives it by base64url-decoding JWT payloads **in memory** and reading `device_id`, preferring the **refresh** half when a pair is present (same approach as the CodexBar reference).
+On this account the stored value is an **access JWT + refresh JWT** pair. Access JWT claims include `exp` (no `device_id` / `app_id`). Refresh JWT claims include `exp`, `device_id`, `app_id`, `platform`. Horizon still derives `Oasis-Webid` / `oasis-appid` from the refresh half when present.
 
-`oasis-appid` is derived from the refresh JWT `app_id` claim when present (observed **20700** for current `platform.stepfun.ai` web sessions). Fallback: `20700`.
+`Oasis-Webid` must match the token’s `device_id` claim. Horizon derives it by base64url-decoding JWT payloads **in memory** and reading `device_id`, preferring the **refresh** half when a pair is present.
+
+`oasis-appid` is derived from the refresh JWT `app_id` claim when present (observed **20700** for current `platform.stepfun.ai` web sessions). Fallback: `20700`. Wrong app id on `.ai` yields `oasis header is invalid`.
+
+## Automatic refresh (Phase 6)
+
+**Supported** using stored KWallet material only: `AUTOMATIC REFRESH SUPPORTED`.
+
+When `QueryStepPlanRateLimit` returns `auth_unavailable`, Horizon attempts **one** refresh:
+
+```http
+POST /passport/proto.api.passport.v1.PassportService/RefreshToken HTTP/1.1
+Host: platform.stepfun.ai
+Content-Type: application/json
+oasis-appid: <from refresh JWT app_id>
+oasis-platform: web
+oasis-webid: <device_id>
+Oasis-Token: <stored pair or JWT>
+Cookie: Oasis-Token=<stored pair or JWT>; Oasis-Webid=<device_id>
+Origin: https://platform.stepfun.ai
+Referer: https://platform.stepfun.ai/
+
+{}
+```
+
+Observed success body shape (values omitted): `accessToken.raw` + `refreshToken.raw` (optional `accessToken.duration` / `mode`). Horizon stores `access...refresh` again.
+
+Rotation: Horizon **validates** the new pair with `QueryStepPlanRateLimit` **before** replacing KWallet `stepfun/oasis-token`. Failed refresh or failed validation leaves the previous secret in place and surfaces `auth_unavailable` (manual **Save token** / `ai-usage auth stepfun set`).
+
+This is unofficial. It is **not** username/password login and **not** browser-cookie import. CodexBar’s older `platform.stepfun.com` + app id `10300` pairing is not the path used here.
+
+Live characterization (2026-09-11, sanitized): stored pair length 628; access `exp` and refresh `exp` were both already past; usage returned HTTP 401; `RefreshToken` on `.ai` + app `20700` still returned HTTP 200 with new access/refresh JWTs. Refresh JWT expiry in the JWT is therefore not a complete predictor of whether `RefreshToken` still accepts the stored material.
 
 ## Endpoints (observed)
 
@@ -132,10 +163,11 @@ Uses existing schema + `breakdown[]` (ADR-0008). No shared-schema redesign.
 ## Security
 
 * Token only in KWallet
+* Optional bounded `RefreshToken` write-back after usage validation (ADR-0010)
 * No browser cookie extraction as the primary path
 * No token in CLI args, cache, docs, or evidence
-* Reference: CodexBar StepFun docs (login automation **not** copied; host/app id updated for current web)
+* Reference: CodexBar Passport `RefreshToken` path verified against current `.ai` + app `20700`; login automation **not** copied
 
 ## Upstream fragility
 
-Unofficial Dashboard endpoints, host (`.ai` vs `.com`), and JWT `app_id` / `device_id` association can change. Expired or wrong-app tokens fail auth; user must paste a fresh Oasis token.
+Unofficial Dashboard and Passport endpoints, host (`.ai` vs `.com`), and JWT `app_id` / `device_id` association can change. If `RefreshToken` rejects the stored pair, the user must paste a fresh Oasis token. Horizon does not implement username/password login.

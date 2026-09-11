@@ -89,27 +89,25 @@ def clear_clipboard() -> None:
 
 
 def verify_token(token: str) -> str:
-    """Return working | auth_failed without leaking token material."""
-    from providers.stepfun import (  # noqa: WPS433
-        StepFunProvider,
-        derive_oasis_app_id,
-        derive_oasis_webid,
-    )
+    """Return working | auth_failed without leaking token material.
 
-    webid = derive_oasis_webid(token)
-    if not webid:
-        return "auth_failed"
-    app_id = derive_oasis_app_id(token) or "20700"
-    provider = StepFunProvider()
+    Uses fetch_usage so a stored but expired Oasis pair can take the same
+    single bounded refresh path as the collector (KWallet updated only after
+    a successful usage probe).
+    """
+    from providers.stepfun import StepFunProvider  # noqa: WPS433
+    from providers import ProviderError  # noqa: WPS433
+
+    # Token argument is the value just stored or read; fetch_usage reloads
+    # from KWallet so callers must persist first.
+    del token
     try:
-        provider._post_json(  # noqa: SLF001 — intentional verify probe
-            "/api/step.openapi.devcenter.Dashboard/QueryStepPlanRateLimit",
-            token,
-            webid,
-            app_id,
-            {},
-        )
+        StepFunProvider().fetch_usage()
         return "working"
+    except ProviderError as exc:
+        if exc.code == "auth_unavailable":
+            return "auth_failed"
+        return "auth_failed"
     except Exception:  # noqa: BLE001
         return "auth_failed"
 
