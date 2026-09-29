@@ -508,3 +508,38 @@ Before Phase 6 can be declared complete:
 Then STOP.
 
 Do not begin Groq discovery, another provider, or any additional capability phase automatically.
+
+---
+
+# Planned Stage 1 Continuation — Not Authorized
+
+The following phase outlines record owner intent so future design and execution remain grounded in the repository. They are **planning anchors only**: they do not authorize implementation, do not create executable tasks, and may be refined before authorization. Preserve the existing Stage-aware Factory lifecycle: authorize one phase explicitly, create/refine its task file, execute, obtain independent Watcher PASS, obtain owner acceptance, then stop.
+
+## Phase 7 — Provider Information Contract
+
+**Intent:** Move human-facing provider semantics out of QML and into the normalized provider information package.
+
+The provider contract should be able to supply provider identity/display name, plan information, and an ordered collection of quota/usage entries. Each quota entry owns its provider-native human-facing label, remaining percentage, reset information, and any state needed for presentation. The UI must not invent provider-specific concepts or hard-code assumptions such as a universal primary/secondary quota pair.
+
+Codex naming should be corrected against the provider's actual exposed quota semantics. Cursor and StepFun should retain their real provider/model/quota terminology. The contract must support an arbitrary 1..N quota entries so future providers can fit without redesigning the UI model.
+
+Detailed schema design, migration strategy, acceptance criteria, and implementation tasks are intentionally deferred until Phase 7 is explicitly authorized.
+
+## Phase 8 — Plasma UI/UX Refresh
+
+**Intent:** Redesign Horizon's expanded representation around the provider-owned information contract from Phase 7.
+
+The target is a polished, information-dense Plasma 6 widget that remains native to KDE/Kirigami rather than introducing a foreign visual system. Provider sections should naturally support arbitrary quota rows and make remaining quota and reset timing easy to scan.
+
+Exact visual design, layout, interaction details, state treatment, accessibility requirements, acceptance criteria, and implementation tasks are intentionally deferred until Phase 8 is explicitly authorized.
+
+## Phase 9 — Compact UX and Release Polish
+
+**Intent:** Bring the compact panel representation, tooltip, refresh interaction, responsive behavior, theme/scaling behavior, documentation, and screenshots into alignment with the redesigned expanded view.
+
+This phase is expected to form the final polish/release boundary for the redesign, but no release version is committed by this planning note.
+
+Detailed scope, acceptance criteria, release decision, and implementation tasks are intentionally deferred until Phase 9 is explicitly authorized.
+
+No new provider (including Claude) is authorized by these planned phases. Provider expansion remains separate future work.
+
