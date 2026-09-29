@@ -14,6 +14,17 @@ No executable task file.
 
 Stage 1 remains an open product stage in `PHASES.md`, but **no Stage 1 phase is currently authorized**. Phase 6 is accepted. Do not begin another phase until owners explicitly authorize it.
 
+
+## Planned Next Phases — Not Authorized
+
+Owner planning currently records the following Stage 1 continuation in `PHASES.md`:
+
+- Phase 7 — Provider Information Contract
+- Phase 8 — Plasma UI/UX Refresh
+- Phase 9 — Compact UX and Release Polish
+
+These are planning anchors only. **No executable task files exist and none of these phases is authorized.** Detailed design, acceptance criteria, and task decomposition are intentionally deferred until the relevant phase is explicitly authorized through the existing Factory lifecycle.
+
 ## Historical Task Files
 
 ```text
