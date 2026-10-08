@@ -436,6 +436,14 @@ Stage 1 may be accepted only when all explicitly authorized Stage 1 phases are a
 
 Only Phase 6 is authorized at Stage 1 creation time.
 
+## Owner Amendment — 2026-10-08
+
+The owners deliberately extend Stage 1 with one planned provider addition: **Phase 6.5 — Claude Usage**. This amendment supersedes the "without adding unrelated providers" clause of the Stage 1 goal **for Claude only**. Claude is a priority tool in the owners' current agent mix and is a required design input for the Phase 7 provider information contract. It is not an opportunistic expansion.
+
+Stage 1 closes after Phase 6.5 is accepted and the Stage 1 exit conditions are checked. The previously planned Phases 7–9 move to Stage 2.
+
+Every other provider expansion (including Groq) remains excluded from Stage 1.
+
 ---
 
 # Phase 6 — StepFun Auth Resilience
@@ -511,7 +519,83 @@ Do not begin Groq discovery, another provider, or any additional capability phas
 
 ---
 
-# Planned Stage 1 Continuation — Not Authorized
+# Phase 6.5 — Claude Usage (Planned — Not Authorized)
+
+> **Status:** planned contract recorded by owner decision on 2026-10-08 (see Stage 1 Owner Amendment). It may be refined until the owners authorize it in `TASKS.md`. Once authorized it becomes an immutable execution boundary like any other phase.
+
+## Goal
+
+Show real Claude subscription usage (Pro/Max), using the user's existing Claude Code authentication, alongside Codex, Cursor, and StepFun. The phase uses the existing normalized usage schema and records enough sanitized discovery evidence for Claude to serve as a required design input to Phase 7.
+
+## Entry Conditions
+
+* Phase 6 is accepted.
+* Codex, Cursor, and StepFun work through the common provider model.
+* The user has a working Claude Code login on the development machine.
+* Stage 1 / Phase 6.5 is explicitly authorized in `TASKS.md`.
+
+## Scope
+
+* Investigate where Claude Code stores its local credentials, and their structure and expiry behavior, using sanitized evidence only.
+* Investigate the current Claude subscription usage mechanism: endpoint, required headers, response shape, exposed usage windows, their labels and reset semantics, and failure behavior for expired, missing, or rejected credentials.
+* Review existing open-source Claude usage trackers where useful, but verify their behavior against the current live service.
+* Document the discovered mechanism in `docs/providers/claude.md`.
+* Implement Claude provider detection and usage retrieval through the explicit provider registry (ADR-0005).
+* Normalize Claude usage into the current schema: `remainingPercent`/`resetAt` for the primary window, and `breakdown` (ADR-0008) with the actual window labels Claude uses.
+* Display Claude alongside the existing providers using the existing UI paths.
+* Handle unavailable, expired, or rejected Claude authentication as a clear `auth_unavailable` state with actionable guidance (re-authenticate in Claude Code).
+* Update security documentation for the new credential source.
+
+## Explicit Exclusions
+
+* Refreshing Claude OAuth tokens, or writing to, rotating, or copying Claude Code's credential store. Horizon reads only (as in ADR-0004 and ADR-0007), because rotating credentials could invalidate the user's Claude Code session.
+* Implementing a Claude login flow.
+* Storing Claude credentials in KWallet or anywhere else.
+* Anthropic API-key / Console billing or API usage tracking.
+* Browser cookie or session import.
+* Changes to the shared normalized schema, beyond what is strictly required to represent proven Claude data. Any such change must be justified and recorded; the schema redesign belongs to Phase 7.
+* UI redesign. That belongs to Phases 8–9.
+* Changes to Codex, Cursor, or StepFun behavior, unless required to fix a demonstrated regression introduced by this phase.
+* Any other provider (including Groq).
+
+## Acceptance Criteria
+
+1. The Claude credential source, usage mechanism, and exposed usage windows are documented from sanitized evidence.
+2. Horizon detects usable Claude Code authentication where it is present.
+3. Real Claude usage, including every window the provider exposes with its reset time where available, is retrieved and normalized through the common provider model.
+4. Claude appears correctly in the widget alongside Codex, Cursor, and StepFun.
+5. Missing, expired, or rejected Claude credentials produce a clear `auth_unavailable` state, and Horizon never attempts a token refresh or modifies Claude Code's credential store.
+6. No Claude token, refresh token, or other secret is exposed in repo, config, cache, logs, stdout/stderr, process arguments, docs, or task evidence.
+7. Claude failure does not affect Codex, Cursor, or StepFun.
+8. Periodic and manual refresh create no overlapping Claude requests.
+9. Discovery documentation records the full Claude window structure (count, labels, reset semantics) in a form Phase 7 can use as a design input.
+
+## Handoff Contract
+
+Before Phase 6.5 can be declared complete:
+
+* All acceptance criteria must be supported by direct evidence.
+* Claude success, missing-auth, expired/rejected-auth, and upstream-failure paths must be tested.
+* Codex, Cursor, and StepFun must still work independently.
+* Secret audit must pass.
+* Known upstream/API fragility (unofficial mechanism) must be documented.
+* Durable technical findings must be promoted to `docs/`. Decisions must be recorded only if future work must respect them.
+* Deferred work must be recorded.
+* Mandatory independent Watcher verification must return PASS.
+* Project owners must explicitly accept the phase after Watcher PASS.
+* `docs/handoffs/phase-6.5.md` is created as the accepted-state snapshot.
+
+Then STOP.
+
+After acceptance, check the Stage 1 exit conditions explicitly. Do not open Stage 2 or begin Phase 7 automatically.
+
+---
+
+# Planned Stage 2 — Provider Contract & UX (Not Authorized)
+
+> **Stage 2 does not exist as an executable stage until Stage 1 is accepted (including Phase 6.5) and the owners explicitly open Stage 2.** Its goal, entry conditions, and exit conditions are refined at that time.
+
+**Intent:** Move provider semantics into a provider-owned information contract and redesign the Plasma UI around it, across all four providers (Codex, Cursor, StepFun, Claude).
 
 The following phase outlines record owner intent so future design and execution remain grounded in the repository. They are **planning anchors only**: they do not authorize implementation, do not create executable tasks, and may be refined before authorization. Preserve the existing Stage-aware Factory lifecycle: authorize one phase explicitly, create/refine its task file, execute, obtain independent Watcher PASS, obtain owner acceptance, then stop.
 
@@ -521,7 +605,9 @@ The following phase outlines record owner intent so future design and execution 
 
 The provider contract should be able to supply provider identity/display name, plan information, and an ordered collection of quota/usage entries. Each quota entry owns its provider-native human-facing label, remaining percentage, reset information, and any state needed for presentation. The UI must not invent provider-specific concepts or hard-code assumptions such as a universal primary/secondary quota pair.
 
-Codex naming should be corrected against the provider's actual exposed quota semantics. Cursor and StepFun should retain their real provider/model/quota terminology. The contract must support an arbitrary 1..N quota entries so future providers can fit without redesigning the UI model.
+Codex naming should be corrected against the provider's actual exposed quota semantics. Cursor, StepFun, and Claude should retain their real provider/model/quota terminology. The contract must support an arbitrary 1..N quota entries so future providers can fit without redesigning the UI model.
+
+**Required design input (owner decision 2026-10-08):** the contract must be designed against real Claude usage data documented by Phase 6.5. Claude is expected to expose the richest window structure of the four providers.
 
 Detailed schema design, migration strategy, acceptance criteria, and implementation tasks are intentionally deferred until Phase 7 is explicitly authorized.
 
@@ -541,5 +627,5 @@ This phase is expected to form the final polish/release boundary for the redesig
 
 Detailed scope, acceptance criteria, release decision, and implementation tasks are intentionally deferred until Phase 9 is explicitly authorized.
 
-No new provider (including Claude) is authorized by these planned phases. Provider expansion remains separate future work.
+No new provider is authorized by these planned phases. *(2026-10-08: this note previously read "including Claude"; that is superseded by the Stage 1 Owner Amendment, which plans Claude as Phase 6.5.)* Every other provider expansion remains separate future work.
 

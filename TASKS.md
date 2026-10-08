@@ -17,9 +17,15 @@ Stage 1 remains an open product stage in `PHASES.md`, but **no Stage 1 phase is 
 
 ## Planned Next Phases — Not Authorized
 
-Owner planning currently records the following Stage 1 continuation in `PHASES.md`:
+Owner planning (amended 2026-10-08) records the following in `PHASES.md`:
 
-- Phase 7 — Provider Information Contract
+**Stage 1 (amended):**
+
+- Phase 6.5 — Claude Usage (full contract drafted; awaiting explicit authorization)
+
+**Stage 2 — Provider Contract & UX (opens only after Stage 1 is accepted):**
+
+- Phase 7 — Provider Information Contract (Claude is a required design input)
 - Phase 8 — Plasma UI/UX Refresh
 - Phase 9 — Compact UX and Release Polish
 
