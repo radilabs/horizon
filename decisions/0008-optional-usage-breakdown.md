@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (Phase 3 Cursor mapping correction)
+Accepted (Phase 3 Cursor mapping correction). Partly superseded by ADR-0012: `meters` is the canonical ordered list, and `breakdown` is its compatibility copy.
 
 ## Context
 

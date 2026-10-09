@@ -591,9 +591,11 @@ After acceptance, check the Stage 1 exit conditions explicitly. Do not open Stag
 
 ---
 
-# Planned Stage 2 — Provider Contract & UX (Not Authorized)
+# Planned Stage 2 — Provider Contract & UX (planning record)
 
-> **Stage 2 does not exist as an executable stage until Stage 1 is accepted (including Phase 6.5) and the owners explicitly open Stage 2.** Its goal, entry conditions, and exit conditions are refined at that time.
+> **Execution note (2026-10-09):** Owners authorized Stage 2 / Phase 7. The executable contract is `# Stage 2 — Provider Contract & UX` and `# Phase 7 — Provider Information Contract` below. This earlier outline is a planning record, not a second contract.
+
+> **Historical text:** This section was written as "Not Authorized" before Stage 1 closed. Stage 2 did not exist as an executable stage until Stage 1 was accepted and the owners opened Stage 2.
 
 **Intent:** Move provider semantics into a provider-owned information contract and redesign the Plasma UI around it, across all four providers (Codex, Cursor, StepFun, Claude).
 
@@ -647,7 +649,7 @@ Make Horizon's provider information coherent and extensible for real observed su
 
 ## Planned Phases
 
-* Phase 7 — Provider Information Contract (authorized with this contract).
+* Phase 7 — Provider Information Contract (accepted 2026-10-09; snapshot `docs/handoffs/phase-7.md`).
 * Phase 8 — Plasma UI/UX Refresh (planned, not authorized).
 * Phase 9 — Compact UX and Release Polish (planned, not authorized).
 
@@ -658,6 +660,8 @@ All authorized Stage 2 phases are accepted; existing four providers and security
 ---
 
 # Phase 7 — Provider Information Contract
+
+> **Status:** accepted 2026-10-09. Snapshot: `docs/handoffs/phase-7.md`. The contract below is the historical execution boundary.
 
 ## Goal
 

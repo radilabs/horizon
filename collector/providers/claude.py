@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from . import ProviderError
+from .contract import project_ok
 
 DEFAULT_CREDENTIALS = Path.home() / ".claude" / ".credentials.json"
 DEFAULT_API_BASE = "https://api.anthropic.com"
@@ -175,19 +176,12 @@ class ClaudeProvider:
         if not breakdown:
             raise ProviderError("upstream_error", "Claude usage response had no utilization windows")
 
-        primary = breakdown[0]
-        out: dict[str, Any] = {
-            "provider": self.id,
-            "displayName": self.display_name,
-            "plan": plan_label,
-            "remainingPercent": primary["remainingPercent"],
-            "resetAt": primary.get("resetAt"),
-            "status": "ok",
-            "breakdown": breakdown,
-        }
-        if len(breakdown) > 1:
-            out["secondaryRemainingPercent"] = breakdown[1]["remainingPercent"]
-        return out
+        return project_ok(
+            provider=self.id,
+            display_name=self.display_name,
+            plan=plan_label,
+            meters=breakdown,
+        )
 
 
 def _plan_label(subscription_type: Any) -> str:

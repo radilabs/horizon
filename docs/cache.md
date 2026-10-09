@@ -1,4 +1,4 @@
-# Horizon usage cache (Phase 2)
+# Horizon usage cache (Phase 2, updated Phase 7)
 
 ## Location
 
@@ -44,7 +44,14 @@ Not in the git repository. Not beside provider credentials. Never contains Oasis
     "plan": "ChatGPT Plus",
     "remainingPercent": 94,
     "resetAt": "2026-08-17T12:00:00+02:00",
-    "status": "ok"
+    "status": "ok",
+    "meters": [
+      {
+        "label": "Weekly limit",
+        "remainingPercent": 94,
+        "resetAt": "2026-08-17T12:00:00+02:00"
+      }
+    ]
   }
 }
 ```
@@ -60,6 +67,7 @@ Not in the git repository. Not beside provider credentials. Never contains Oasis
 
 * Used only when live retrieval fails
 * Returned payload uses `status=stale`, `stale=true`, preserves `fetchedAt`
+* If the cached success has no `meters`, the stale payload rebuilds them from `breakdown` or the older percent fields (ADR-0012). It does not invent a `breakdown` list that was not cached.
 * Includes user-safe `error` describing the live failure
 * Missing/corrupt cache → normal failure payload (no crash)
 

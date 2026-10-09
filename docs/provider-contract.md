@@ -1,4 +1,4 @@
-# Provider contract (Phase 2+)
+# Provider contract (Phase 2, updated Phase 7)
 
 Horizon providers are small Python modules selected by an explicit registry in the `ai-usage` CLI.
 
@@ -27,6 +27,8 @@ Provider
 ```
 
 Normalization happens inside the provider (or helpers it owns). The CLI dispatcher does not understand upstream HTTP/auth.
+
+Successful usage payloads use the Phase 7 meter contract in `docs/usage-schema.md` (ADR-0012): an ordered `meters` list of provider-native labels, percent remaining, and per-meter resets. `remainingPercent`, `secondaryRemainingPercent`, and `breakdown` are compatibility projections of that list. Providers build the list through `providers.contract.project_ok` so those copies cannot drift.
 
 ## Dispatcher
 

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+Stage 2 / Phase 7 — Provider information contract. Accepted 2026-10-09. The tagged release is still 0.1.1.
+
+* Ordered `meters` are the canonical quota list: provider label, percent remaining, and that meter's own reset (ADR-0012)
+* Existing `remainingPercent`, `secondaryRemainingPercent`, and `breakdown` stay as compatibility copies
+* Codex windows are labeled from their length (`5-hour limit`, `Weekly limit`), not Primary/Secondary
+
 Stage 1 / Phase 6.5 — Claude usage. Accepted 2026-10-09. The tagged release is still 0.1.1.
 
 * Claude Pro/Max usage from the existing Claude Code login (`~/.claude/.credentials.json`), read-only

@@ -6,26 +6,26 @@ Only an explicitly authorized phase may be executed.
 
 ## Current Execution
 
-- **Current stage:** Stage 2 — Provider Contract & UX (authorized)
-- **Current phase:** Phase 7 — Provider Information Contract (authorized)
-- **Status:** authorized; not yet executed
+- **Current stage:** Stage 2 — Provider Contract & UX (open)
+- **Current phase:** none authorized
+- **Status:** idle
 
-Executable task file: `tasks/phase-7-provider-information-contract.md`.
+No executable task file.
 
-Stage 1 is closed. Stage 2 / Phase 7 is opened by explicit owner authorization on 2026-10-09. Phase 8 and Phase 9 remain unapproved.
+Stage 1 is closed. Stage 2 / Phase 7 was accepted on 2026-10-09. Snapshot: `docs/handoffs/phase-7.md`. Phase 8 and Phase 9 remain unapproved. Horizon release remains **0.1.1**.
 
 
 ## Stage 2 Roadmap
 
 Owner planning (amended 2026-10-08) records the following in `PHASES.md`:
 
-**Stage 2 — Provider Contract & UX (Stage 2 and Phase 7 authorized):**
+**Stage 2 — Provider Contract & UX (Phase 7 accepted; Phases 8–9 not authorized):**
 
-- Phase 7 — Provider Information Contract (authorized; Claude is a required design input)
+- Phase 7 — Provider Information Contract (accepted 2026-10-09)
 - Phase 8 — Plasma UI/UX Refresh
 - Phase 9 — Compact UX and Release Polish
 
-Only Phase 7 is executable. Phases 8–9 are planning anchors only, with no executable task files or authorization.
+No phase is executable. Phases 8–9 are planning anchors only, with no executable task files or authorization.
 
 ## Historical Task Files
 
@@ -39,26 +39,29 @@ tasks/
 ├── phase-4-stepfun.md
 ├── phase-5-polish.md
 ├── phase-6-stepfun-auth-resilience.md   # ACCEPTED (historical)
-└── phase-6.5-claude-usage.md             # ACCEPTED (historical)
+├── phase-6.5-claude-usage.md             # ACCEPTED (historical)
+└── phase-7-provider-information-contract.md  # ACCEPTED (historical)
 ```
 
 Historical task files are execution evidence only. Their presence does not authorize further work.
 
 ## History
 
-Last completed phase: **Phase 6.5 — Claude Usage** (accepted 2026-10-09; release remains Horizon **0.1.1**).
+Last completed phase: **Phase 7 — Provider Information Contract** (accepted 2026-10-09; release remains Horizon **0.1.1**).
+
+Phase 6.5 — Claude Usage was accepted 2026-10-09 (Horizon **0.1.1**).
 
 Phase 6 — StepFun Auth Resilience was accepted 2026-09-11 (Horizon **0.1.1**).
 
 Phases 0–5 predate adoption of the current Stage-aware Factory shell. Their accepted history is preserved as-is and must not be rewritten retrospectively.
 
-Stage 1 / Phase 6 was the first work completed under the current Stage-aware Factory lifecycle (Watcher PASS + owner acceptance). Stage 1 / Phase 6.5 is the second, and it closes Stage 1.
+Stage 1 / Phase 6 was the first work completed under the current Stage-aware Factory lifecycle (Watcher PASS + owner acceptance). Stage 1 / Phase 6.5 closed Stage 1. Stage 2 / Phase 7 is the first accepted Stage 2 phase. Stage 2 remains open because Phases 8–9 are not authorized.
 
 ## Authority
 
 - Product definition and Factory rules: `PROJECT.md`
 - Stage/phase contracts: `PHASES.md`
-- Current executable work: `tasks/phase-7-provider-information-contract.md`
+- Current executable work: none
 - Accepted snapshots: `docs/handoffs/`
 
 Do not execute Phase 8, Phase 9, or additional providers (including Groq) until explicitly authorized.

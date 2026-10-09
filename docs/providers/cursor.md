@@ -145,11 +145,10 @@ Other endpoints observed but not used as primary:
 | `provider` | `"cursor"` |
 | `displayName` | `"Cursor"` |
 | `plan` | `GetPlanInfo.planName` or membership type |
-| `remainingPercent` | **Cursor Models**: `round(100 - autoPercentUsed)` |
-| `secondaryRemainingPercent` | **Other Models**: `round(100 - apiPercentUsed)` |
-| `breakdown[0]` | Cursor Models (+ shared `resetAt`) |
-| `breakdown[1]` | Other Models (+ shared `resetAt`) |
-| `resetAt` | `billingCycleEnd` (ms → local ISO offset); same value on each breakdown line |
+| `meters` / `breakdown` | Cursor Models when `autoPercentUsed` is present, then Other Models when `apiPercentUsed` is present. Either pool may be absent. |
+| `remainingPercent` | Compatibility copy of the first meter (Cursor Models when present, otherwise Other Models) |
+| `secondaryRemainingPercent` | Compatibility copy of Other Models, only when both pools exist |
+| `resetAt` | `billingCycleEnd` (ms → local ISO offset); same value on each meter |
 | `status` | `ok` / errors / `stale` via cache |
 
 Intentionally omitted from normalized output:

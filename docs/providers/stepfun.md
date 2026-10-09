@@ -145,15 +145,15 @@ Meters:
 
 ## Normalized mapping
 
-Uses existing schema + `breakdown[]` (ADR-0008). No shared-schema redesign.
+Phase 7 stores the same rows as ordered `meters` (ADR-0012). `breakdown` is a copy of `meters`.
 
 | Field | Meaning for StepFun |
 |-------|---------------------|
-| `remainingPercent` | First breakdown meter (5-Hour or Credits) |
-| `secondaryRemainingPercent` | Second meter when present (Weekly) |
-| `breakdown[].label` | `5-Hour Usage` / `Weekly Usage` or credit labels |
-| `breakdown[].remainingPercent` | Remaining % |
-| `breakdown[].resetAt` | Per-meter reset when known |
+| `meters[].label` | `5-Hour Usage` / `Weekly Usage` or credit labels |
+| `meters[].remainingPercent` | Remaining % |
+| `meters[].resetAt` | That meter's own reset when known |
+| `remainingPercent` | Compatibility copy of the first meter |
+| `secondaryRemainingPercent` | Compatibility copy of the second meter when present |
 | `plan` | `GetStepPlanStatus.subscription.name` or `"Step Plan"` |
 
 ## Cache

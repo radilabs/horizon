@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from . import ProviderError
+from .contract import project_ok
 
 CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
 REFRESH_URL = os.environ.get(
@@ -189,44 +190,75 @@ class CodexProvider:
         if not isinstance(window, dict):
             window = {}
 
-        used = window.get("used_percent")
-        if used is None:
-            raise ProviderError("upstream_error", "Usage response missing primary used_percent")
-        try:
-            used_f = float(used)
-        except (TypeError, ValueError) as exc:
-            raise ProviderError("upstream_error", "used_percent is not numeric") from exc
+        primary = _meter_from_window(window)
+        if primary is None:
+            if window.get("used_percent") is None:
+                raise ProviderError("upstream_error", "Usage response missing primary used_percent")
+            raise ProviderError("upstream_error", "used_percent is not numeric")
 
-        remaining = max(0, min(100, int(round(100 - used_f))))
-
-        reset_at = None
-        if window.get("reset_at") is not None:
-            try:
-                epoch = int(window["reset_at"])
-                reset_at = datetime.fromtimestamp(epoch, tz=timezone.utc).astimezone().isoformat()
-            except (TypeError, ValueError, OSError):
-                reset_at = None
-        elif window.get("reset_after_seconds") is not None:
-            try:
-                secs = int(window["reset_after_seconds"])
-                now = datetime.now(timezone.utc).timestamp()
-                reset_at = datetime.fromtimestamp(now + secs, tz=timezone.utc).astimezone().isoformat()
-            except (TypeError, ValueError, OSError):
-                reset_at = None
-
-        out: dict[str, Any] = {
-            "provider": self.id,
-            "displayName": self.display_name,
-            "plan": plan,
-            "remainingPercent": remaining,
-            "resetAt": reset_at,
-            "status": "ok",
-        }
+        meters = [primary]
         secondary = rate.get("secondary_window")
         if isinstance(secondary, dict) and secondary.get("used_percent") is not None:
-            try:
-                sec_used = float(secondary["used_percent"])
-                out["secondaryRemainingPercent"] = max(0, min(100, int(round(100 - sec_used))))
-            except (TypeError, ValueError):
-                pass
-        return out
+            secondary_meter = _meter_from_window(secondary)
+            if secondary_meter is not None:
+                meters.append(secondary_meter)
+        return project_ok(
+            provider=self.id,
+            display_name=self.display_name,
+            plan=plan,
+            meters=meters,
+        )
+
+
+def _meter_from_window(window: dict[str, Any]) -> dict[str, Any] | None:
+    used = window.get("used_percent")
+    if used is None:
+        return None
+    try:
+        remaining = max(0, min(100, int(round(100 - float(used)))))
+    except (TypeError, ValueError):
+        return None
+    meter: dict[str, Any] = {
+        "label": _window_label(window),
+        "remainingPercent": remaining,
+    }
+    reset_at = _reset_from_window(window)
+    if reset_at:
+        meter["resetAt"] = reset_at
+    return meter
+
+
+def _window_label(window: dict[str, Any]) -> str:
+    """Label a Codex window from its proven length. The API has no display name."""
+    try:
+        seconds = int(window.get("limit_window_seconds"))
+    except (TypeError, ValueError):
+        return "Usage limit"
+    if seconds == 5 * 60 * 60:
+        return "5-hour limit"
+    if seconds == 7 * 24 * 60 * 60:
+        return "Weekly limit"
+    if seconds > 0 and seconds % 86400 == 0:
+        days = seconds // 86400
+        return f"{days}-day limit"
+    if seconds > 0 and seconds % 3600 == 0 and seconds < 48 * 3600:
+        hours = seconds // 3600
+        return f"{hours}-hour limit"
+    return "Usage limit"
+
+
+def _reset_from_window(window: dict[str, Any]) -> str | None:
+    if window.get("reset_at") is not None:
+        try:
+            epoch = int(window["reset_at"])
+            return datetime.fromtimestamp(epoch, tz=timezone.utc).astimezone().isoformat()
+        except (TypeError, ValueError, OSError):
+            return None
+    if window.get("reset_after_seconds") is not None:
+        try:
+            secs = int(window["reset_after_seconds"])
+            now = datetime.now(timezone.utc).timestamp()
+            return datetime.fromtimestamp(now + secs, tz=timezone.utc).astimezone().isoformat()
+        except (TypeError, ValueError, OSError):
+            return None
+    return None

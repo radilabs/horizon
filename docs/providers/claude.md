@@ -71,9 +71,9 @@ Claude Code 2.1.295 titles, in dialog order. Horizon uses these labels when the 
 | `seven_day_omelette` | Omelette limit | null |
 | `seven_day_overage_included` | Fable limit | null |
 
-The primary meter is the first present window in that order (session, when present). `secondaryRemainingPercent` is the second present window. Further windows go in `breakdown` only.
+The first present window in that order (session, when present) is `meters[0]`. Every later present window is another meter, including windows after the second. `breakdown` is a copy of `meters`. `remainingPercent` copies the first meter. `secondaryRemainingPercent` copies only the second meter and is not a cap on the list.
 
-Additional payload keys that were **null** on this account and are not quota bars unless a future response gives them a numeric `utilization`: `tangelo`, `iguana_necktie`, `omelette_promotional`, `nimbus_quill`, `cinder_cove`, `copper_kite`, `brass_thimble`, `harbor_lantern`, `wattle_ember`, `amber_ladder`, `amber_cistern`, `juniper_tide`, `cedar_ember`, `amber_gauge`. If one of those objects later includes `utilization`, Horizon keeps it as an extra breakdown row and prefers a short `label` field when the payload has one. Claude Code itself special-cases `cinder_cove` (“Claude Code and Cowork credit”) and `wattle_ember` (its own `label`, else “Credit”).
+Additional payload keys that were **null** on this account and are not quota bars unless a future response gives them a numeric `utilization`: `tangelo`, `iguana_necktie`, `omelette_promotional`, `nimbus_quill`, `cinder_cove`, `copper_kite`, `brass_thimble`, `harbor_lantern`, `wattle_ember`, `amber_ladder`, `amber_cistern`, `juniper_tide`, `cedar_ember`, `amber_gauge`. If one of those objects later includes `utilization`, Horizon keeps it as an extra meter and prefers a short `label` field when the payload has one. Claude Code itself special-cases `cinder_cove` (“Claude Code and Cowork credit”) and `wattle_ember` (its own `label`, else “Credit”).
 
 `extra_usage` is a spend/credit block (`is_enabled`, `monthly_limit`, `used_credits`, `utilization`, …). It was disabled on this account. Horizon adds an “Extra usage” row only when `is_enabled` is true and `utilization` is numeric.
 
@@ -109,6 +109,18 @@ User-facing text tells the user to re-authenticate in Claude Code. Horizon does 
   "plan": "Pro",
   "remainingPercent": 99,
   "secondaryRemainingPercent": 78,
+  "meters": [
+    {
+      "label": "Current session",
+      "remainingPercent": 99,
+      "resetAt": "2026-10-09T14:00:00+00:00"
+    },
+    {
+      "label": "Current week (all models)",
+      "remainingPercent": 78,
+      "resetAt": "2026-10-12T02:00:00+00:00"
+    }
+  ],
   "breakdown": [
     {
       "label": "Current session",

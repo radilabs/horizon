@@ -16,6 +16,7 @@ from secret_store import get as secret_get
 from secret_store import set as secret_set
 
 from . import ProviderError
+from .contract import project_ok
 
 PROVIDER_ID = "stepfun"
 SECRET_NAME = "oasis-token"
@@ -227,19 +228,12 @@ class StepFunProvider:
         if not breakdown:
             raise ProviderError("upstream_error", "StepFun usage contained no usable meters")
 
-        primary = breakdown[0]
-        out: dict[str, Any] = {
-            "provider": self.id,
-            "displayName": self.display_name,
-            "plan": plan_label,
-            "remainingPercent": primary["remainingPercent"],
-            "resetAt": primary.get("resetAt"),
-            "status": "ok",
-            "breakdown": breakdown,
-        }
-        if len(breakdown) > 1:
-            out["secondaryRemainingPercent"] = breakdown[1]["remainingPercent"]
-        return out
+        return project_ok(
+            provider=self.id,
+            display_name=self.display_name,
+            plan=plan_label,
+            meters=breakdown,
+        )
 
 
 def combine_oasis_token_from_refresh(payload: dict[str, Any]) -> str | None:

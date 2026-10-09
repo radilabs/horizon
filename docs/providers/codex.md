@@ -86,8 +86,8 @@ Identifiers such as email / user ids may appear upstream; Horizon drops them fro
 
 ### Quota windows
 
-* **Primary window**: present; `used_percent` + `reset_at` (unix seconds). On the tested Plus account the primary window length was 604800s (7 days). Other accounts/plans may expose a ~5h primary and weekly secondary (as seen in community trackers).
-* **Secondary window**: null on the tested account; when present, optional `secondaryRemainingPercent` may be included in collector JSON but is not required by the Phase 0/1 UI.
+* **Primary window**: present; `used_percent` + `reset_at` (unix seconds). Phase 1's Plus capture had a 604800s (7 day) primary and a null secondary. A live Plus fetch on 2026-10-09 had an 18000s primary and a 604800s secondary. Labels follow `limit_window_seconds`, not the words primary/secondary.
+* **Secondary window**: included as its own meter when `used_percent` is present, with that window's own reset. `secondaryRemainingPercent` remains only a compatibility copy of the second meter's percent.
 * Remaining percentage for Horizon = `100 - used_percent` (clamped 0–100).
 
 ### Upstream → Horizon mapping
@@ -97,9 +97,13 @@ Identifiers such as email / user ids may appear upstream; Horizon drops them fro
 | (constant) | `provider`: `codex` |
 | (constant) | `displayName`: `Codex` |
 | `plan_type` | `plan` (`plus` → `ChatGPT Plus`, etc.) |
-| `100 - rate_limit.primary_window.used_percent` | `remainingPercent` |
-| `rate_limit.primary_window.reset_at` | `resetAt` (ISO-8601 local offset) |
+| `100 - rate_limit.primary_window.used_percent` | first meter's `remainingPercent` |
+| `rate_limit.primary_window.reset_at` | that meter's `resetAt` (ISO-8601 local offset) |
+| `limit_window_seconds` | meter `label` (`5-hour limit`, `Weekly limit`, or `Usage limit`; never Primary/Secondary) |
+| `secondary_window`, when present | second meter, with its own reset |
 | success | `status`: `ok` |
+
+Phase 7 (ADR-0012) emits those windows as `meters`. `breakdown` is a copy. `remainingPercent` / `resetAt` copy the first meter. `secondaryRemainingPercent` is only the second meter's percent.
 
 ### Fragility
 
@@ -130,11 +134,27 @@ ai-usage status codex --json
   "plan": "ChatGPT Plus",
   "remainingPercent": 94,
   "resetAt": "2026-08-17T09:57:40+02:00",
-  "status": "ok"
+  "status": "ok",
+  "meters": [
+    {
+      "label": "Weekly limit",
+      "remainingPercent": 94,
+      "resetAt": "2026-08-17T09:57:40+02:00"
+    }
+  ],
+  "breakdown": [
+    {
+      "label": "Weekly limit",
+      "remainingPercent": 94,
+      "resetAt": "2026-08-17T09:57:40+02:00"
+    }
+  ]
 }
 ```
 
 Exit code `0`. Secrets never appear in stdout.
+
+This example is the older single-window Plus capture (7-day primary, no secondary). A live Plus fetch on 2026-10-09 returned two meters, `5-hour limit` then `Weekly limit`. Both shapes are valid. The label follows window length, not which JSON field was primary.
 
 ### Failure
 

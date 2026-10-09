@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from providers.contract import meters_from_payload
+
 
 def cache_dir() -> Path:
     xdg = os.environ.get("XDG_CACHE_HOME")
@@ -47,6 +49,7 @@ def write_success(provider_id: str, data: dict[str, Any]) -> Path:
                 "status",
                 "secondaryRemainingPercent",
                 "breakdown",
+                "meters",
             )
             if k in data
         },
@@ -97,6 +100,13 @@ def stale_payload(provider_id: str, display_name: str, live_error: str) -> dict[
     data["stale"] = True
     data["fetchedAt"] = cached["fetchedAt"]
     data["error"] = live_error
+    if not data.get("meters"):
+        try:
+            synthesized = meters_from_payload(data)
+        except ValueError:
+            synthesized = []
+        if synthesized:
+            data["meters"] = synthesized
     data.setdefault("displayName", display_name)
     data.setdefault("provider", provider_id)
     return data

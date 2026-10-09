@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from . import ProviderError
+from .contract import project_ok
 
 DEFAULT_STATE_DB = (
     Path.home() / ".config" / "Cursor" / "User" / "globalStorage" / "state.vscdb"
@@ -182,16 +183,9 @@ class CursorProvider:
                 line["resetAt"] = reset_at
             breakdown.append(line)
 
-        primary = cursor_models if cursor_models is not None else other_models
-        out: dict[str, Any] = {
-            "provider": self.id,
-            "displayName": self.display_name,
-            "plan": plan_label,
-            "remainingPercent": primary,
-            "resetAt": reset_at,
-            "status": "ok",
-            "breakdown": breakdown,
-        }
-        if cursor_models is not None and other_models is not None:
-            out["secondaryRemainingPercent"] = other_models
-        return out
+        return project_ok(
+            provider=self.id,
+            display_name=self.display_name,
+            plan=plan_label,
+            meters=breakdown,
+        )
