@@ -629,3 +629,80 @@ Detailed scope, acceptance criteria, release decision, and implementation tasks 
 
 No new provider is authorized by these planned phases. *(2026-10-08: this note previously read "including Claude"; that is superseded by the Stage 1 Owner Amendment, which plans Claude as Phase 6.5.)* Every other provider expansion remains separate future work.
 
+
+
+---
+
+# Stage 2 — Provider Contract & UX
+
+## Goal
+
+Make Horizon's provider information coherent and extensible for real observed subscription usage, then improve the KDE Plasma presentation without changing the established authentication and collection boundaries.
+
+## Entry Conditions
+
+* Stage 1 exit conditions checked and Stage 1 closed.
+* Phase 6 and Phase 6.5 accepted; four existing providers available as evidence.
+* Owners explicitly authorize Stage 2 / Phase 7.
+
+## Planned Phases
+
+* Phase 7 — Provider Information Contract (authorized with this contract).
+* Phase 8 — Plasma UI/UX Refresh (planned, not authorized).
+* Phase 9 — Compact UX and Release Polish (planned, not authorized).
+
+## Exit Conditions
+
+All authorized Stage 2 phases are accepted; existing four providers and security boundaries remain intact; UX is evaluated on real KDE Plasma; documentation and operational behavior reflect the accepted product. No later phase is opened automatically.
+
+---
+
+# Phase 7 — Provider Information Contract
+
+## Goal
+
+Define and validate the smallest provider-neutral usage information contract that faithfully represents the existing Codex, Cursor, StepFun and Claude subscription data, so Phase 8 can redesign the UI without embedding provider-specific assumptions.
+
+## Entry Conditions
+
+* Stage 1 closed, Phase 6.5 accepted.
+* Stage 2 / Phase 7 explicitly authorized in `TASKS.md`.
+* Current collector schema, UI consumers, and sanitized provider discovery docs are available.
+
+## Scope
+
+* Inventory the actual normalized outputs, distinct usage windows, labels, reset semantics, availability/auth/stale states and supported metadata for all four existing providers.
+* Use Claude's multiple independently resetting windows as a mandatory test case; inspect StepFun/Cursor/Codex variations too.
+* Define a minimal, documented provider-neutral contract for one or more displayable usage meters; specify semantics for percentage remaining versus consumed, unknown values, timestamps, and status.
+* Distinguish proven present-day data from future candidates (balances, spending, rate limits and multiple accounts). Do not add speculative fields merely to cover hypothetical providers.
+* Decide a compatibility/migration approach for existing collector JSON, persisted cache and current QML; implement only changes needed to establish and verify the Phase 7 contract, keeping existing visible behavior stable.
+* Add deterministic fixture/contract tests that exercise each existing provider's normalized result and failure/stale cases.
+* Document durable information-model decisions and the Phase 8 UI-facing contract.
+
+## Explicit Exclusions
+
+* Plasma popup redesign, layout/style changes or compact UI redesign (Phases 8–9).
+* New providers, including Groq, OpenRouter, Anthropic API billing and SendGrid.
+* Credential refresh, login or authentication changes for any provider.
+* General plugin architecture, multi-account management, billing or purchase flows.
+* A speculative universal financial/usage model unsupported by current evidence.
+* Unrelated feature work, notification changes or upgrades to unrelated dependencies.
+
+## Acceptance Criteria
+
+1. Sanitized examples and a clear field/semantic inventory cover all four current providers, including Claude's session and weekly windows and their independent reset timestamps.
+2. The documented contract can express current multi-meter outputs, plan/provider identity, missing/unknown data, per-meter reset, success, auth-unavailable, upstream-error and stale states without provider-specific QML assumptions.
+3. Meter direction and scale (used versus remaining) are unambiguous; no fabricated usage values, resets or plan/account identities.
+4. The compatibility story for current CLI output, cache and QML is explicit and verified; no regression in any of the four providers or the current widget.
+5. Deterministic contract/fixture tests pass, including multi-window and error/stale scenarios.
+6. No credential material appears in committed artifacts, logs or test fixtures.
+7. Out-of-scope opportunities are recorded as deferred work rather than implemented.
+8. Independent Watcher verification returns PASS; owners explicitly accept after reviewing evidence.
+
+## Handoff Contract
+
+* Record direct test evidence and the schema/compatibility decisions in the active task and durable documentation.
+* Verify all four provider paths remain independent, with no secret exposure and no incidental UI changes.
+* Independent Watcher PASS, followed by explicit owner acceptance.
+* Only after acceptance, write `docs/handoffs/phase-7.md` as the accepted-state snapshot and produce the checkpoint.
+* STOP. Do not start Phase 8.

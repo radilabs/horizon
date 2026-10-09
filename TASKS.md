@@ -6,26 +6,26 @@ Only an explicitly authorized phase may be executed.
 
 ## Current Execution
 
-- **Current stage:** none authorized
-- **Current phase:** none authorized
-- **Status:** idle
+- **Current stage:** Stage 2 — Provider Contract & UX (authorized)
+- **Current phase:** Phase 7 — Provider Information Contract (authorized)
+- **Status:** authorized; not yet executed
 
-No executable task file.
+Executable task file: `tasks/phase-7-provider-information-contract.md`.
 
-Stage 1 is closed. Phase 6 and Phase 6.5 are accepted. Stage 1 exit conditions were checked on 2026-10-09 (`docs/handoffs/phase-6.5.md`). Stage 2 is not opened. Do not begin Phase 7 until it is explicitly authorized.
+Stage 1 is closed. Stage 2 / Phase 7 is opened by explicit owner authorization on 2026-10-09. Phase 8 and Phase 9 remain unapproved.
 
 
-## Planned Next Phases — Not Authorized
+## Stage 2 Roadmap
 
 Owner planning (amended 2026-10-08) records the following in `PHASES.md`:
 
-**Stage 2 — Provider Contract & UX (not opened; Stage 1 is closed, and Stage 2 still requires explicit authorization):**
+**Stage 2 — Provider Contract & UX (Stage 2 and Phase 7 authorized):**
 
-- Phase 7 — Provider Information Contract (Claude is a required design input)
+- Phase 7 — Provider Information Contract (authorized; Claude is a required design input)
 - Phase 8 — Plasma UI/UX Refresh
 - Phase 9 — Compact UX and Release Polish
 
-These are planning anchors only. **No executable task files exist for these phases, and none of them is authorized.** Detailed design, acceptance criteria, and task decomposition are intentionally deferred until the relevant phase is explicitly authorized through the existing Factory lifecycle.
+Only Phase 7 is executable. Phases 8–9 are planning anchors only, with no executable task files or authorization.
 
 ## Historical Task Files
 
@@ -58,7 +58,7 @@ Stage 1 / Phase 6 was the first work completed under the current Stage-aware Fac
 
 - Product definition and Factory rules: `PROJECT.md`
 - Stage/phase contracts: `PHASES.md`
-- Current executable work: **none**
+- Current executable work: `tasks/phase-7-provider-information-contract.md`
 - Accepted snapshots: `docs/handoffs/`
 
-Do not create or execute a later phase (including Groq) until it is explicitly authorized.
+Do not execute Phase 8, Phase 9, or additional providers (including Groq) until explicitly authorized.
