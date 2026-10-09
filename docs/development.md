@@ -22,6 +22,17 @@ After QML edits:
 plasmawindowed com.radilabs.horizon   # quick preview
 ```
 
+If an already added widget does not pick up the change, log out and back in,
+then re-add Horizon from the widget picker if it is missing.
+
+Run the plasmoid-side tests (no Plasma session needed):
+
+```bash
+QT_QPA_PLATFORM=offscreen qmltestrunner6 -input tests/test_compact_summary.qml
+QT_QPA_PLATFORM=offscreen qmltestrunner6 -input tests/test_refresh_keys.qml
+QT_QPA_PLATFORM=offscreen qmltestrunner6 -input tests/test_meter_intake.qml
+```
+
 ## Development layout
 
 ```text
@@ -33,11 +44,19 @@ plasmoid/
     │   └── main.xml
     └── ui/
         ├── main.qml
-        └── configGeneral.qml
+        ├── configGeneral.qml
+        └── MeterIntake.js      # meter rows, compact text, tooltip text
 collector/
+tests/
+  test_*.py                    # collector / schema / provider tests (unittest)
+  test_*.qml                   # plasmoid-side tests (qmltestrunner6)
 scripts/
   install.sh | upgrade.sh | uninstall.sh
 ```
+
+The plasmoid imports `MeterIntake.js` for meter intake and for the compact and
+tooltip summaries. Change the collector output only through the contract in
+`docs/usage-schema.md`.
 
 ## Debugging
 

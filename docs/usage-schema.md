@@ -2,7 +2,7 @@
 
 Contract version: `2` (Phase 7, ADR-0012). Version `1` was the Phase 2 payload plus the optional Phase 3 `breakdown` list.
 
-This is the only shape the Plasma UI understands. Provider-specific upstream data must not appear here. The Phase 8 expanded popup reads `meters` when that list is present, then `breakdown`, then the primary/secondary fields. It does not copy a missing meter reset from the top-level `resetAt`. The compact panel and tooltip still use the compatibility percents.
+This is the only shape the Plasma UI understands. Provider-specific upstream data must not appear here. The popup, compact panel, and tooltip read `meters` when that list is present, then `breakdown`, then the primary/secondary fields. A missing meter reset is not copied from the top-level `resetAt`. The compact summary uses the lowest remaining percent above 0, and counts meters at 0 separately.
 
 ## Canonical meter
 

@@ -625,11 +625,111 @@ Exact visual design, layout, interaction details, state treatment, accessibility
 
 ## Phase 9 — Compact UX and Release Polish
 
+> **Status:** accepted 2026-10-09. Snapshot: `docs/handoffs/phase-9.md`. Owners also approved Horizon **0.2.0** (`v0.2.0`) on that date.
+
 **Intent:** Bring the compact panel representation, tooltip, refresh interaction, responsive behavior, theme/scaling behavior, documentation, and screenshots into alignment with the redesigned expanded view.
 
 This phase is expected to form the final polish/release boundary for the redesign, but no release version is committed by this planning note.
 
-Detailed scope, acceptance criteria, release decision, and implementation tasks are intentionally deferred until Phase 9 is explicitly authorized.
+> **Execution note (2026-10-09):** Owners authorized Phase 9 after Phase 8 was accepted and merged to `main` at `0a06644`. The executable task is `tasks/phase-9-compact-ux-release-polish.md`. The contract below is the authorized execution boundary. A release, version bump or tag still needs separate owner approval.
+
+### Goal
+
+Make the compact panel summary, the tooltip, the popup's size and its Refresh action honest and readable for 1..N ordered meters (ADR-0012). Then bring the screenshots, user documentation, changelog and Plasma reload/upgrade guidance up to date, and produce release-readiness evidence with a version recommendation. Horizon stays at **0.1.1** during this phase.
+
+### Entry Conditions
+
+* Phase 8 accepted (`docs/handoffs/phase-8.md`) and on `main` at `0a06644`.
+* Stage 2 / Phase 9 explicitly authorized in `TASKS.md`.
+
+### Scope
+
+* **Compact summary.** Replace "lowest remaining across every row" with this rule, computed from the same meter intake the popup uses (`MeterIntake.js`, i.e. `meters`, then `breakdown`, then primary/secondary), not from `breakdownJson`. Only `ok`/`stale` providers with quota contribute:
+  * **Headline:** the lowest percent **remaining** among meters that are above 0.
+  * **Exhausted count:** the number of meters at exactly 0.
+  * **Text:** `AI <n>%` when no meter is exhausted. `AI <n>% · <k> at 0%` when some, but not all, meters are exhausted. `AI 0%` when every contributing meter is exhausted.
+  * **No quota anywhere:** keep the existing `AI` / `AI !` / `AI —` / `AI …` states.
+
+  The compact text never hides an exhausted meter, and never reports a single exhausted meter as if all usage were gone. The rule is provider-neutral. It does not infer whether a provider's meters are alternatives or joint limits.
+* **Tooltip.** One block per enabled provider, read from the same meter intake:
+  * a provider line with the name, plus the plan when known, plus a cached marker and age when stale;
+  * then one line per meter, giving its label and percent remaining, in payload order.
+
+  Failure providers show their status label plus the payload's user-safe `error` text, on one line and shortened if long. Resets are not shown in the tooltip. They stay in the popup.
+* **Popup height.**
+  * Preferred height follows content.
+  * The popup is bounded below by `Kirigami.Units.gridUnit * 12`, and above by the smaller of `gridUnit * 40` and about 80% of the available screen height.
+  * The provider list keeps scrolling inside the `ScrollView` once that maximum is reached.
+  * Width stays as accepted in Phase 8.
+  * There are no fixed pixel sizes.
+* **Refresh.**
+  * Move Refresh into the popup header as a native `view-refresh` tool button with a visible tooltip.
+  * Give it an accessible name and description. It is keyboard-focusable and can be activated with Enter or Space. F5 also refreshes while the popup has focus.
+  * It shows a busy state while any provider is in flight, and is disabled when no provider is enabled.
+  * The bottom footer row is removed, unless something non-redundant still needs it.
+* **Readability.** Refine provider separation, spacing, header hierarchy and progress bars using Plasma/Kirigami components and theme values only. An exhausted meter may use the theme's negative color as a supplement to its existing text, never as a replacement. There are no other invented thresholds.
+* **QML cleanup.** Model fields that become unused after compact and tooltip move to meter intake (`breakdownJson`, `secondaryRemainingPercent`) may be removed from QML. This change is QML-only.
+* **Documentation.**
+  * Real-desktop README screenshots: popup, compact plus tooltip, and settings showing all four providers.
+  * README and `docs/release.md` text matching the new compact rule.
+  * A `CHANGELOG.md` "Unreleased" entry.
+  * Plasma reload guidance after install/upgrade, in the README, and optionally as a printed hint in `scripts/install.sh` (which `scripts/upgrade.sh` runs).
+* **Release readiness.** Run the `docs/release.md` validation checklist against this branch, run the secret audit, and record a version recommendation with its rationale for the owners.
+* **Tests.** Deterministic `qmltestrunner6` tests for the compact rule and the tooltip text, including mixed states. The existing Python and QML tests still pass.
+
+### Explicit Exclusions
+
+* Collector, provider normalize, cache, cache schema, authentication, or ADR-0012 changes. `git diff 0a06644 -- collector` stays empty.
+* New providers (including Groq), billing, spend, balances, accounts, login flows, backend refactoring.
+* Provider-specific compact logic, for example treating Cursor pools as alternatives or Claude windows as joint limits.
+* New configuration keys or settings UI, notifications, compact icon/graphic redesign, alternative compact modes.
+* A general-purpose UI framework or component library.
+* Changing `VERSION`, `plasmoid/metadata.json` `KPlugin.Version`, or the README version line. Creating git tags or GitHub releases. Publishing anything.
+* Rewriting accepted Phase 0–8 contracts, task files or handoffs.
+
+### Acceptance Criteria
+
+1. **Compact, mixed states.** On a real panel and in tests:
+   * one meter at 0% with others high (Cursor Other Models 0, Cursor Models 75, Codex/StepFun/Claude high) shows `AI 75% · 1 at 0%`, not `AI 0%`;
+   * all healthy shows `AI <lowest>%`;
+   * every meter at 0 shows `AI 0%`;
+   * auth or error with no quota anywhere shows `AI !` / `AI —`;
+   * no providers enabled shows `AI`;
+   * loading shows `AI …`;
+   * stale cached meters count with their cached values.
+2. **Compact fits.** The compact text is readable without clipping on a horizontal panel. On a vertical panel, eliding or wrapping is acceptable as long as the tooltip carries the full text.
+3. **Tooltip.**
+   * Lists every enabled provider, with each meter's label and percent remaining in order.
+   * Stale providers are marked with their age. Failure providers show their status and user-safe error text.
+   * No Primary/Secondary label, no invented plan, and no reset a meter lacks.
+4. **Popup height.**
+   * On a landscape screen, four providers fit without excess empty space.
+   * On a portrait screen, or one constrained to a portrait-like height, the popup stays on screen and the provider list scrolls.
+   * Nothing is clipped.
+   * Checked on a freshly added widget, because Plasma may keep a user-resized popup size.
+5. **Refresh.** Visible in the header. Reachable and activatable by keyboard, F5 works, it has an accessible name, it shows a busy state while refreshing, and it is disabled with no providers. It never starts overlapping per-provider requests.
+6. **No popup regression.** The Phase 8 behavior still holds:
+   * meters → breakdown → primary/secondary intake;
+   * a reset only on meters that have their own `resetAt`;
+   * percent remaining;
+   * text-identifiable states with no bars on failure;
+   * `tests/test_meter_intake.qml` passes.
+7. **Native look.** Kirigami/Plasma theme values only. Readable in Breeze Light and Breeze Dark, both for the popup and the compact panel plus tooltip.
+8. **Documentation.**
+   * The README screenshots are captured on the real Plasma desktop, committed under `docs/assets/`, and contain no secrets, tokens, emails or account ids.
+   * The README, `docs/release.md` and `CHANGELOG.md` describe the actual behavior.
+   * Reload/upgrade guidance is accurate and verified once on this machine.
+9. **Release readiness.** The `docs/release.md` checklist is run and its result recorded. A version recommendation with rationale is recorded for the owners. No version files changed, and no tag or release was created.
+10. **Boundaries.** The collector diff from `0a06644` is empty, all tests pass, and the secret audit passes. Out-of-scope discoveries are recorded as Deferred Work.
+11. Independent Watcher verification returns PASS. Owners explicitly accept after reviewing the evidence.
+
+### Handoff Contract
+
+* Record direct evidence for every criterion in the task file. Runtime screenshots and Watcher reports go under the gitignored `reports/`. README images go under `docs/assets/`.
+* Independent Watcher PASS, then explicit owner acceptance.
+* Only after acceptance, write `docs/handoffs/phase-9.md`.
+* Any release (version bump, tag, GitHub release) is a separate, explicitly approved owner action, not part of this phase.
+* STOP. Do not start new work or a new stage automatically.
 
 No new provider is authorized by these planned phases. *(2026-10-08: this note previously read "including Claude"; that is superseded by the Stage 1 Owner Amendment, which plans Claude as Phase 6.5.)* Every other provider expansion remains separate future work.
 
@@ -653,7 +753,9 @@ Make Horizon's provider information coherent and extensible for real observed su
 
 * Phase 7 — Provider Information Contract (accepted 2026-10-09; snapshot `docs/handoffs/phase-7.md`).
 * Phase 8 — Plasma UI/UX Refresh (accepted 2026-10-09; snapshot `docs/handoffs/phase-8.md`).
-* Phase 9 — Compact UX and Release Polish (planned, not authorized).
+* Phase 9 — Compact UX and Release Polish (accepted 2026-10-09; snapshot `docs/handoffs/phase-9.md`).
+
+> **Status:** closed 2026-10-09. Phases 7, 8, and 9 are accepted. Horizon **0.2.0**. No later phase is authorized.
 
 ## Exit Conditions
 

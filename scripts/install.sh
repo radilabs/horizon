@@ -52,5 +52,7 @@ echo "  launcher:  ${BIN_DIR}/ai-usage"
 echo "  plasmoid:  com.radilabs.horizon"
 echo
 echo "Add the Horizon widget from the Plasma widget picker."
+echo "If an already added widget does not pick up this install, reload Plasma with: plasmashell --replace"
+echo "Or log out and back in, then re-add Horizon from the widget picker if it is missing."
 echo "StepFun token (optional): ai-usage auth stepfun set"
 echo "Or configure providers / token from the widget settings."

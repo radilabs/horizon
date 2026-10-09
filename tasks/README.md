@@ -1,14 +1,12 @@
 # Task Execution
 
-Current stage: **Stage 2 — Provider Contract & UX** (open)  
+Current stage: **none authorized**  
 Current phase: **none authorized**  
 Status: **idle**
 
-No executable task file.
+Stage 2 is closed. Phase 9 was accepted on 2026-10-09. Snapshot: `docs/handoffs/phase-9.md`. Horizon release is **0.2.0**.
 
-Last accepted phase: **Phase 8 — Plasma UI/UX Refresh** (`docs/handoffs/phase-8.md`). Stage 2 remains open. Phase 9 is not authorized. Horizon release remains **0.1.1**.
-
-Historical phase task files remain under `tasks/` as execution evidence only. Their presence does not authorize additional work.
+No phase is executable. Historical phase task files remain under `tasks/` as execution evidence only. Their presence does not authorize additional work.
 
 ## Execution Order (when a phase is authorized)
 

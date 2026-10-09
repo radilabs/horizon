@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
+import QtQuick.Window
 import QtCore
 import org.kde.plasma.plasmoid
 import org.kde.plasma.components as PlasmaComponents
@@ -15,6 +16,31 @@ PlasmoidItem {
     Plasmoid.title: "Horizon"
     toolTipMainText: "Horizon"
     toolTipSubText: root.tooltipSummary
+    toolTipTextFormat: Text.PlainText
+    // Plasma's default tooltip label stops at 8 lines, which hides later providers.
+    toolTipItem: Item {
+        implicitWidth: tipColumn.implicitWidth + Kirigami.Units.largeSpacing * 2
+        implicitHeight: tipColumn.implicitHeight + Kirigami.Units.largeSpacing * 2
+
+        Column {
+            id: tipColumn
+            x: Kirigami.Units.largeSpacing
+            y: Kirigami.Units.largeSpacing
+            spacing: 0
+
+            Kirigami.Heading {
+                level: 3
+                text: "Horizon"
+            }
+
+            PlasmaComponents.Label {
+                text: root.tooltipSummary
+                textFormat: Text.PlainText
+                wrapMode: Text.NoWrap
+                color: Kirigami.Theme.textColor
+            }
+        }
+    }
 
     preferredRepresentation: Plasmoid.formFactor === PlasmaCore.Types.Planar
         ? fullRepresentation
@@ -100,11 +126,7 @@ PlasmoidItem {
                 providerId: row.providerId,
                 providerName: row.providerName,
                 planName: row.planName,
-                remainingPercent: row.remainingPercent,
-                secondaryRemainingPercent: row.secondaryRemainingPercent,
-                breakdownJson: row.breakdownJson,
                 metersJson: row.metersJson || "[]",
-                resetText: row.resetText,
                 statusCode: row.statusCode,
                 statusLabel: row.statusLabel,
                 errorText: row.errorText,
@@ -124,11 +146,7 @@ PlasmoidItem {
                     providerId: id,
                     providerName: id,
                     planName: "",
-                    remainingPercent: -1,
-                    secondaryRemainingPercent: -1,
-                    breakdownJson: "[]",
                     metersJson: "[]",
-                    resetText: "",
                     statusCode: "idle",
                     statusLabel: "",
                     errorText: "",
@@ -224,13 +242,10 @@ PlasmoidItem {
 
         if (!obj || typeof obj !== "object") {
             providersModel.set(idx, {
+                providerId: providerId,
                 providerName: providerId,
                 planName: "",
-                remainingPercent: -1,
-                secondaryRemainingPercent: -1,
-                breakdownJson: "[]",
                 metersJson: "[]",
-                resetText: "",
                 statusCode: "collector_error",
                 statusLabel: "Collector error",
                 errorText: "",
@@ -248,68 +263,29 @@ PlasmoidItem {
         var stale = obj.stale === true || statusCode === "stale"
         var providerName = obj.displayName || obj.provider || providerId
         var planName = ""
-        var remainingPercent = -1
-        var secondaryRemainingPercent = -1
-        var breakdownJson = "[]"
         var metersJson = "[]"
-        var resetText = ""
         var fetchedAtText = ""
         var hasQuota = false
 
         if (statusCode === "ok" || statusCode === "stale") {
             planName = obj.plan || ""
-            remainingPercent = (typeof obj.remainingPercent === "number") ? obj.remainingPercent : -1
-            secondaryRemainingPercent = (typeof obj.secondaryRemainingPercent === "number")
-                ? obj.secondaryRemainingPercent
-                : -1
-            if (Array.isArray(obj.breakdown)) {
-                var lines = []
-                for (var i = 0; i < obj.breakdown.length; i++) {
-                    var line = obj.breakdown[i]
-                    if (!line || typeof line !== "object")
-                        continue
-                    if (typeof line.remainingPercent !== "number")
-                        continue
-                    var lineReset = line.resetAt || obj.resetAt || ""
-                    lines.push({
-                        label: String(line.label || ""),
-                        remainingPercent: line.remainingPercent,
-                        resetText: formatRelative(lineReset)
-                    })
-                }
-                breakdownJson = JSON.stringify(lines)
-            } else if (remainingPercent >= 0) {
-                var fallback = [{
-                    label: "",
-                    remainingPercent: remainingPercent,
-                    resetText: formatRelative(obj.resetAt || "")
-                }]
-                if (secondaryRemainingPercent >= 0) {
-                    fallback.push({
-                        label: "Usage limit",
-                        remainingPercent: secondaryRemainingPercent,
-                        resetText: formatRelative(obj.resetAt || "")
-                    })
-                }
-                breakdownJson = JSON.stringify(fallback)
-            }
-            resetText = formatRelative(obj.resetAt)
             fetchedAtText = formatFetchedAt(obj.fetchedAt)
-            hasQuota = remainingPercent >= 0 || (Array.isArray(obj.breakdown) && obj.breakdown.length > 0)
             metersJson = popupMetersJson(obj)
+            try {
+                hasQuota = JSON.parse(metersJson).length > 0
+            } catch (e) {
+                hasQuota = false
+            }
         }
 
         var statusLabel = friendlyStatusLabel(statusCode, stale, hasQuota, fetchedAtText, false)
         var errorText = (obj && typeof obj.error === "string") ? obj.error : ""
 
         providersModel.set(idx, {
+            providerId: providerId,
             providerName: providerName,
             planName: planName,
-            remainingPercent: remainingPercent,
-            secondaryRemainingPercent: secondaryRemainingPercent,
-            breakdownJson: breakdownJson,
             metersJson: metersJson,
-            resetText: resetText,
             statusCode: statusCode,
             statusLabel: statusLabel,
             errorText: errorText,
@@ -322,71 +298,35 @@ PlasmoidItem {
         updateCompactSummary()
     }
 
-    function lowestQuotaPercent() {
-        var min = null
+    function providerSnapshots() {
+        var list = []
         for (var i = 0; i < providersModel.count; i++) {
             var row = providersModel.get(i)
-            if (!row.hasQuota || typeof row.remainingPercent !== "number" || row.remainingPercent < 0)
-                continue
-            var candidate = row.remainingPercent
+            var meters = []
             try {
-                var lines = JSON.parse(row.breakdownJson || "[]")
-                for (var j = 0; j < lines.length; j++) {
-                    if (typeof lines[j].remainingPercent === "number")
-                        candidate = Math.min(candidate, lines[j].remainingPercent)
-                }
-            } catch (e) { }
-            if (min === null || candidate < min)
-                min = candidate
+                meters = JSON.parse(row.metersJson || "[]")
+            } catch (e) {
+                meters = []
+            }
+            list.push({
+                name: row.providerName,
+                plan: row.planName,
+                statusCode: row.statusCode,
+                statusLabel: row.statusLabel,
+                errorText: row.errorText,
+                stale: row.stale,
+                fetchedAtText: row.fetchedAtText,
+                inFlight: row.inFlight,
+                meters: meters
+            })
         }
-        return min
+        return list
     }
 
     function updateCompactSummary() {
-        var min = lowestQuotaPercent()
-        if (min === null) {
-            var anyEnabled = enabledProviderIds().length > 0
-            var anyAuth = false
-            var anyErr = false
-            for (var i = 0; i < providersModel.count; i++) {
-                var st = providersModel.get(i).statusCode
-                if (st === "auth_unavailable")
-                    anyAuth = true
-                if (st !== "idle" && st !== "ok")
-                    anyErr = true
-            }
-            if (!anyEnabled)
-                compactText = "AI"
-            else if (anyAuth)
-                compactText = "AI !"
-            else if (anyErr)
-                compactText = "AI —"
-            else
-                compactText = "AI …"
-        } else {
-            compactText = "AI " + min + "%"
-        }
-
-        var bits = []
-        for (var k = 0; k < providersModel.count; k++) {
-            var row = providersModel.get(k)
-            var line = row.providerName
-            if (row.hasQuota) {
-                line += "  " + row.remainingPercent + "%"
-                if (row.secondaryRemainingPercent >= 0)
-                    line += " / " + row.secondaryRemainingPercent + "%"
-                if (row.stale)
-                    line += " (cached)"
-            } else if (row.statusLabel) {
-                line += "  " + row.statusLabel
-            } else if (row.inFlight) {
-                line += "  …"
-            } else {
-                line += "  —"
-            }
-            bits.push(line)
-        }
-        tooltipSummary = bits.length ? bits.join("\n") : "No providers enabled"
+        var providers = providerSnapshots()
+        compactText = MeterIntake.compactText(providers)
+        tooltipSummary = MeterIntake.tooltipText(providers)
     }
 
     function updateAnyInFlight() {
@@ -502,9 +442,15 @@ PlasmoidItem {
     }
 
     compactRepresentation: MouseArea {
+        readonly property bool verticalPanel: Plasmoid.formFactor === PlasmaCore.Types.Vertical
+        readonly property int textWidth: compactLabel.implicitWidth + Kirigami.Units.smallSpacing * 2
+
         Layout.minimumWidth: Kirigami.Units.gridUnit * 2
         Layout.minimumHeight: Kirigami.Units.gridUnit
-        Layout.preferredWidth: compactLabel.implicitWidth + Kirigami.Units.smallSpacing * 2
+        Layout.preferredWidth: verticalPanel
+            ? Math.min(textWidth, Kirigami.Units.gridUnit * 6)
+            : textWidth
+        Layout.maximumWidth: verticalPanel ? Kirigami.Units.gridUnit * 6 : textWidth
         Layout.preferredHeight: Math.max(compactLabel.implicitHeight, Kirigami.Units.iconSizes.small)
 
         acceptedButtons: Qt.LeftButton
@@ -512,34 +458,92 @@ PlasmoidItem {
 
         PlasmaComponents.Label {
             id: compactLabel
-            anchors.centerIn: parent
+            anchors.fill: parent
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
             text: root.compactText
             font.bold: true
+            elide: Text.ElideRight
         }
     }
 
     fullRepresentation: Item {
         id: popup
+        readonly property int availableScreenHeight: Screen.desktopAvailableHeight > 0
+            ? Screen.desktopAvailableHeight
+            : Screen.height
+        readonly property int maxPopupHeight: Math.min(
+            Kirigami.Units.gridUnit * 40,
+            Math.max(Kirigami.Units.gridUnit * 12, Math.round(availableScreenHeight * 0.8))
+        )
+        readonly property int chromeHeight: Kirigami.Units.largeSpacing * 2
+            + Kirigami.Units.smallSpacing * 2
+            + headerRow.implicitHeight
+            + subtitleLabel.implicitHeight
+        readonly property int listHeight: Math.max(providerColumn.implicitHeight, providerColumn.childrenRect.height)
+        readonly property int contentHeight: chromeHeight + listHeight + Kirigami.Units.largeSpacing
+
         implicitWidth: Kirigami.Units.gridUnit * 20
-        implicitHeight: Kirigami.Units.gridUnit * 32
+        implicitHeight: Math.max(Kirigami.Units.gridUnit * 12, Math.min(contentHeight, maxPopupHeight))
         Layout.minimumWidth: Kirigami.Units.gridUnit * 16
-        Layout.minimumHeight: Kirigami.Units.gridUnit * 16
+        Layout.minimumHeight: Kirigami.Units.gridUnit * 12
         Layout.preferredWidth: implicitWidth
         Layout.preferredHeight: implicitHeight
-        Layout.maximumHeight: Kirigami.Units.gridUnit * 36
+        Layout.maximumHeight: maxPopupHeight
+
+        Shortcut {
+            sequences: ["F5"]
+            context: Qt.WindowShortcut
+            enabled: providersModel.count > 0
+            onActivated: root.refreshUsage()
+        }
 
         ColumnLayout {
+            id: popupColumn
             anchors.fill: parent
             anchors.margins: Kirigami.Units.largeSpacing
             spacing: Kirigami.Units.smallSpacing
 
-            Kirigami.Heading {
+            RowLayout {
+                id: headerRow
                 Layout.fillWidth: true
-                level: 4
-                text: "Horizon"
+                spacing: Kirigami.Units.smallSpacing
+
+                Kirigami.Heading {
+                    Layout.fillWidth: true
+                    level: 4
+                    text: "Horizon"
+                }
+
+                QQC2.BusyIndicator {
+                    visible: root.anyInFlight
+                    running: root.anyInFlight
+                    Layout.preferredWidth: Kirigami.Units.iconSizes.small
+                    Layout.preferredHeight: Kirigami.Units.iconSizes.small
+                }
+
+                PlasmaComponents.ToolButton {
+                    id: refreshButton
+                    icon.name: "view-refresh"
+                    text: "Refresh"
+                    display: QQC2.AbstractButton.IconOnly
+                    enabled: providersModel.count > 0
+                    activeFocusOnTab: true
+                    Accessible.name: root.anyInFlight ? "Refreshing" : "Refresh"
+                    Accessible.description: "Refresh usage for every enabled provider"
+                    onClicked: root.refreshUsage()
+                    Keys.onReturnPressed: if (enabled) root.refreshUsage()
+                    Keys.onEnterPressed: if (enabled) root.refreshUsage()
+                    Keys.onSpacePressed: if (enabled) root.refreshUsage()
+
+                    QQC2.ToolTip.visible: hovered || activeFocus
+                    QQC2.ToolTip.text: root.anyInFlight ? "Refreshing…" : "Refresh"
+                    QQC2.ToolTip.delay: Kirigami.Units.shortDuration
+                }
             }
 
             PlasmaComponents.Label {
+                id: subtitleLabel
                 Layout.fillWidth: true
                 text: "AI Agent Usage"
                 color: Kirigami.Theme.disabledTextColor
@@ -549,14 +553,16 @@ PlasmoidItem {
                 id: scroller
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                implicitHeight: popup.listHeight
                 contentWidth: availableWidth
 
-                ColumnLayout {
+                Column {
+                    id: providerColumn
                     width: scroller.availableWidth
                     spacing: Kirigami.Units.mediumSpacing
 
                     PlasmaComponents.Label {
-                        Layout.fillWidth: true
+                        width: parent.width
                         visible: providersModel.count === 0
                         wrapMode: Text.WordWrap
                         text: "No providers enabled. Open widget settings to enable Codex, Cursor, StepFun, or Claude."
@@ -568,7 +574,7 @@ PlasmoidItem {
 
                         delegate: ColumnLayout {
                             id: providerBlock
-                            Layout.fillWidth: true
+                            width: providerColumn.width
                             spacing: Kirigami.Units.smallSpacing
 
                             readonly property bool showMeters: (model.statusCode === "ok" || model.statusCode === "stale") && model.hasQuota
@@ -622,6 +628,9 @@ PlasmoidItem {
                                         PlasmaComponents.Label {
                                             text: modelData.remainingPercent + "% remaining"
                                             font.bold: true
+                                            color: modelData.remainingPercent === 0
+                                                ? Kirigami.Theme.negativeTextColor
+                                                : Kirigami.Theme.textColor
                                         }
                                     }
 
@@ -648,9 +657,11 @@ PlasmoidItem {
                                 visible: model.statusLabel.length > 0
                                 wrapMode: Text.WordWrap
                                 text: model.statusLabel
-                                color: model.stale ? Kirigami.Theme.neutralTextColor
-                                     : (model.statusCode === "ok" ? Kirigami.Theme.textColor
-                                                                  : Kirigami.Theme.negativeTextColor)
+                                color: (model.statusCode === "idle" || model.statusCode === "")
+                                     ? Kirigami.Theme.disabledTextColor
+                                     : (model.stale ? Kirigami.Theme.neutralTextColor
+                                        : (model.statusCode === "ok" ? Kirigami.Theme.textColor
+                                                                     : Kirigami.Theme.negativeTextColor))
                             }
 
                             PlasmaComponents.Label {
@@ -670,27 +681,6 @@ PlasmoidItem {
                 }
             }
 
-            Kirigami.Separator {
-                Layout.fillWidth: true
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Kirigami.Units.smallSpacing
-
-                PlasmaComponents.Button {
-                    text: root.anyInFlight ? "Refreshing…" : "Refresh"
-                    enabled: providersModel.count > 0
-                    onClicked: root.refreshUsage()
-                }
-
-                PlasmaComponents.Label {
-                    Layout.fillWidth: true
-                    text: root.anyInFlight ? "Updating…" : ""
-                    color: Kirigami.Theme.disabledTextColor
-                    elide: Text.ElideRight
-                }
-            }
         }
     }
 }

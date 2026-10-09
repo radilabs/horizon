@@ -4,16 +4,18 @@
 
 Horizon is a KDE Plasma widget for Linux that keeps an eye on OpenAI Codex (ChatGPT Plus), Cursor, Claude, and the StepFun Step Plan, so you can see when you are close to a limit without opening separate dashboards.
 
-Compact panel: one meaningful remaining percentage — the lowest among enabled providers.
-Popup: one section per provider with its plan, one row per remaining-quota meter with that meter's own reset, and clear stale / auth / error labels.
+Compact panel: the lowest remaining quota. A meter at 0 is counted beside that number (`AI 75% · 1 at 0%`) instead of replacing it. When every meter is at 0 the panel shows `AI 0%`.
+Popup: one section per provider with its plan, one row per remaining-quota meter with that meter's own reset, and clear stale / auth / error labels. Hover the panel for each meter's label.
 
-<img src="docs/assets/horizon-usage.png" alt="Horizon expanded view showing remaining quotas for Codex, Cursor, StepFun, and Claude with plan names, meters and reset times" width="300">
+<img src="docs/assets/horizon-usage.png" alt="Horizon popup with Codex, Cursor, StepFun, and Claude. Each meter shows percent remaining and its own reset. Cursor Other Models is at 0 percent and shown in the theme's negative color." width="360">
+
+<img src="docs/assets/horizon-compact.png" alt="Horizon panel tooltip listing every enabled provider and meter, with the panel reading AI 70% · 1 at 0%" width="420">
 
 Product page and release overview: [Radilabs Horizon](https://www.radilabs.com/horizon/)
 
 ## Features
 
-- Panel widget showing the lowest remaining quota across enabled providers
+- Panel widget showing the lowest remaining quota, with a separate count when some meters are exhausted
 - Expanded popup with one section per provider, a plan when known, and one row per remaining-quota meter with its own reset
 - Codex, Cursor, Claude, and StepFun Step Plan support
 - Per-provider enable/disable with a configurable refresh interval (default 15 minutes)
@@ -42,14 +44,14 @@ Horizon does **not** implement provider login/OAuth, browser cookie import, or p
 
 ## Install
 
-Current release: **0.1.1** — [GitHub release v0.1.1](https://github.com/radilabs/horizon/releases/tag/v0.1.1) · [Radilabs Horizon page](https://www.radilabs.com/horizon/)
+Current release: **0.2.0** — [GitHub release v0.2.0](https://github.com/radilabs/horizon/releases/tag/v0.2.0) · [Radilabs Horizon page](https://www.radilabs.com/horizon/)
 
-Dependencies: Plasma 6, Python 3, Python D-Bus (`python3-dbus`) for KWallet, `kdialog` for optional settings token entry.
+Dependencies: Plasma 6, Python 3, Python D-Bus (`python3-dbus`) for KWallet, and a clipboard tool (`wl-paste` on Wayland, or Klipper via `qdbus6`) for the optional settings token entry.
 
 ```bash
 git clone https://github.com/radilabs/horizon.git
 cd horizon
-git checkout v0.1.1        # release tag; omit for the current tip of main
+git checkout v0.2.0        # release tag; omit for the current tip of main
 ./scripts/install.sh
 ```
 
@@ -60,6 +62,14 @@ This installs:
 * plasmoid `com.radilabs.horizon`
 
 Add **Horizon** from the Plasma widget picker.
+
+If Horizon is already on the panel and does not show the new popup or compact text, reload Plasma:
+
+```bash
+plasmashell --replace
+```
+
+You can also log out and back in. If the widget disappears, add it again from the widget picker. `scripts/upgrade.sh` runs `scripts/install.sh`, which prints the same hint.
 
 Upgrade / uninstall:
 
@@ -79,9 +89,7 @@ Widget settings (right-click → Configure Horizon):
 * Refresh interval: 5 / 10 / **15** / 30 / 60 minutes (default 15)
 * StepFun token management
 
-<img src="docs/assets/horizon-settings.png" alt="Horizon settings window with Codex, Cursor and StepFun enabled, a 15 minute refresh interval, and a configured StepFun credential" width="600">
-
-That settings picture is from before the Claude checkbox. Claude is an accepted provider and appears in that same list.
+<img src="docs/assets/horizon-settings.png" alt="Horizon settings with Codex, Cursor, StepFun, and Claude enabled, a 15 minute refresh interval, and a configured StepFun credential" width="600">
 
 Disabled providers are not queried, refreshed, shown, or included in the compact summary. Disabling does **not** delete credentials.
 
@@ -152,7 +160,7 @@ Architecture: [provider-contract](docs/provider-contract.md), [usage-schema](doc
 Development notes: [docs/development.md](docs/development.md).  
 Release process: [docs/release.md](docs/release.md).
 
-Version: **0.1.1**
+Version: **0.2.0**
 
 ## License
 

@@ -1,24 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 — 2026-10-09
 
-Stage 2 / Phase 8 — Plasma popup. Accepted 2026-10-09. The tagged release is still 0.1.1.
-
-* Expanded popup shows one section per provider and one row per remaining-quota meter
-* A reset appears only on the meter that has one
-* Compact panel and collector behavior are unchanged
-
-Stage 2 / Phase 7 — Provider information contract. Accepted 2026-10-09. The tagged release is still 0.1.1.
-
-* Ordered `meters` are the canonical quota list: provider label, percent remaining, and that meter's own reset (ADR-0012)
-* Existing `remainingPercent`, `secondaryRemainingPercent`, and `breakdown` stay as compatibility copies
-* Codex windows are labeled from their length (`5-hour limit`, `Weekly limit`), not Primary/Secondary
-
-Stage 1 / Phase 6.5 — Claude usage. Accepted 2026-10-09. The tagged release is still 0.1.1.
-
-* Claude Pro/Max usage from the existing Claude Code login (`~/.claude/.credentials.json`), read-only
-* Current session and current week shown with the provider’s own labels
-* Missing or rejected Claude sessions stay `auth_unavailable`; Horizon does not refresh or copy the credentials (ADR-0011)
+* Claude Pro/Max usage from the existing Claude Code login (`~/.claude/.credentials.json`), read-only. Horizon does not refresh or copy those credentials
+* Ordered usage meters: each row has the provider’s own label, percent remaining, and that meter’s own reset
+* Popup shows one section per provider, scrolls when the list is taller than the screen, and puts Refresh in the header
+* Compact panel keeps the lowest remaining quota when another meter is at 0 (`AI 75% · 1 at 0%`). The tooltip lists every meter
 
 ## 0.1.1 — 2026-09-11
 
