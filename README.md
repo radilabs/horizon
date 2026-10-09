@@ -5,7 +5,7 @@
 Horizon is a KDE Plasma widget for Linux that keeps an eye on OpenAI Codex (ChatGPT Plus), Cursor, Claude, and the StepFun Step Plan, so you can see when you are close to a limit without opening separate dashboards.
 
 Compact panel: one meaningful remaining percentage — the lowest among enabled providers.
-Popup: per-provider plan, meters, reset times, and clear stale / auth / error labels.
+Popup: one section per provider with its plan, one row per remaining-quota meter with that meter's own reset, and clear stale / auth / error labels.
 
 <img src="docs/assets/horizon-usage.png" alt="Horizon expanded view showing remaining quotas for Codex, Cursor, StepFun, and Claude with plan names, meters and reset times" width="300">
 
@@ -14,7 +14,7 @@ Product page and release overview: [Radilabs Horizon](https://www.radilabs.com/h
 ## Features
 
 - Panel widget showing the lowest remaining quota across enabled providers
-- Expanded popup with per-provider plan, meters, and reset times
+- Expanded popup with one section per provider, a plan when known, and one row per remaining-quota meter with its own reset
 - Codex, Cursor, Claude, and StepFun Step Plan support
 - Per-provider enable/disable with a configurable refresh interval (default 15 minutes)
 - Background refresh with per-provider overlap protection
@@ -81,7 +81,7 @@ Widget settings (right-click → Configure Horizon):
 
 <img src="docs/assets/horizon-settings.png" alt="Horizon settings window with Codex, Cursor and StepFun enabled, a 15 minute refresh interval, and a configured StepFun credential" width="600">
 
-That settings picture is from before the Claude checkbox. Claude is the next provider in the same list.
+That settings picture is from before the Claude checkbox. Claude is an accepted provider and appears in that same list.
 
 Disabled providers are not queried, refreshed, shown, or included in the compact summary. Disabling does **not** delete credentials.
 

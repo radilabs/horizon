@@ -615,6 +615,8 @@ Detailed schema design, migration strategy, acceptance criteria, and implementat
 
 ## Phase 8 — Plasma UI/UX Refresh
 
+> **Status:** accepted 2026-10-09. Snapshot: `docs/handoffs/phase-8.md`. Compact-panel redesign and release polish stay in Phase 9.
+
 **Intent:** Redesign Horizon's expanded representation around the provider-owned information contract from Phase 7.
 
 The target is a polished, information-dense Plasma 6 widget that remains native to KDE/Kirigami rather than introducing a foreign visual system. Provider sections should naturally support arbitrary quota rows and make remaining quota and reset timing easy to scan.
@@ -650,7 +652,7 @@ Make Horizon's provider information coherent and extensible for real observed su
 ## Planned Phases
 
 * Phase 7 — Provider Information Contract (accepted 2026-10-09; snapshot `docs/handoffs/phase-7.md`).
-* Phase 8 — Plasma UI/UX Refresh (planned, not authorized).
+* Phase 8 — Plasma UI/UX Refresh (accepted 2026-10-09; snapshot `docs/handoffs/phase-8.md`).
 * Phase 9 — Compact UX and Release Polish (planned, not authorized).
 
 ## Exit Conditions

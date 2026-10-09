@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+Stage 2 / Phase 8 — Plasma popup. Accepted 2026-10-09. The tagged release is still 0.1.1.
+
+* Expanded popup shows one section per provider and one row per remaining-quota meter
+* A reset appears only on the meter that has one
+* Compact panel and collector behavior are unchanged
+
 Stage 2 / Phase 7 — Provider information contract. Accepted 2026-10-09. The tagged release is still 0.1.1.
 
 * Ordered `meters` are the canonical quota list: provider label, percent remaining, and that meter's own reset (ADR-0012)

@@ -2,7 +2,7 @@
 
 Contract version: `2` (Phase 7, ADR-0012). Version `1` was the Phase 2 payload plus the optional Phase 3 `breakdown` list.
 
-This is the only shape the Plasma UI understands. Provider-specific upstream data must not appear here. The current QML reads the compatibility fields below. Phase 8 should read `meters` and should not assume a universal primary/secondary pair.
+This is the only shape the Plasma UI understands. Provider-specific upstream data must not appear here. The Phase 8 expanded popup reads `meters` when that list is present, then `breakdown`, then the primary/secondary fields. It does not copy a missing meter reset from the top-level `resetAt`. The compact panel and tooltip still use the compatibility percents.
 
 ## Canonical meter
 
@@ -38,12 +38,12 @@ These stay so current CLI output, cache, and QML keep working (ADR-0012). They a
 | Field | Type | Meaning |
 |-------|------|---------|
 | `secondaryRemainingPercent` | number | Present only when a second meter exists. Copies `meters[1].remainingPercent`. It has no label and no reset of its own. |
-| `breakdown` | array | Copy of `meters` for the current popup, which prefers `breakdown` over the primary/secondary pair. |
+| `breakdown` | array | Copy of `meters`. The popup uses it only when `meters` is absent. |
 | `error` | string | User-safe error text (no secrets) |
 | `stale` | boolean | `true` when serving last-successful cache after live failure |
 | `fetchedAt` | string | ISO-8601 time when the **successful** payload was originally fetched |
 
-Pre-Phase-7 cache may lack `meters`. On a stale read the collector rebuilds `meters`: from `breakdown` when that list exists, otherwise one `Usage limit` meter from `remainingPercent` (keeping the payload reset) and, when `secondaryRemainingPercent` exists, a second `Usage limit` meter with no reset. Duplicate labels are allowed; order distinguishes them. The current popup still ignores `meters`.
+Pre-Phase-7 cache may lack `meters`. On a stale read the collector rebuilds `meters`: from `breakdown` when that list exists, otherwise one `Usage limit` meter from `remainingPercent` (keeping the payload reset) and, when `secondaryRemainingPercent` exists, a second `Usage limit` meter with no reset. Duplicate labels are allowed; order distinguishes them. The popup applies the same fallback order when `meters` is absent, so a legacy payload renders as labeled meters rather than a blank label plus "Secondary".
 
 ## Status values
 

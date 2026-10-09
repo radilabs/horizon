@@ -6,7 +6,7 @@ Status: **idle**
 
 No executable task file.
 
-Last accepted phase: **Phase 7 — Provider Information Contract** (`docs/handoffs/phase-7.md`). Stage 2 remains open. Phase 8 and Phase 9 are not authorized. Horizon release remains **0.1.1**.
+Last accepted phase: **Phase 8 — Plasma UI/UX Refresh** (`docs/handoffs/phase-8.md`). Stage 2 remains open. Phase 9 is not authorized. Horizon release remains **0.1.1**.
 
 Historical phase task files remain under `tasks/` as execution evidence only. Their presence does not authorize additional work.
 

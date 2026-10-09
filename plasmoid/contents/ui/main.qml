@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import QtCore
 import org.kde.plasma.plasmoid
@@ -6,6 +7,7 @@ import org.kde.plasma.components as PlasmaComponents
 import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasma5support as P5Support
 import org.kde.kirigami as Kirigami
+import "MeterIntake.js" as MeterIntake
 
 PlasmoidItem {
     id: root
@@ -101,6 +103,7 @@ PlasmoidItem {
                 remainingPercent: row.remainingPercent,
                 secondaryRemainingPercent: row.secondaryRemainingPercent,
                 breakdownJson: row.breakdownJson,
+                metersJson: row.metersJson || "[]",
                 resetText: row.resetText,
                 statusCode: row.statusCode,
                 statusLabel: row.statusLabel,
@@ -124,6 +127,7 @@ PlasmoidItem {
                     remainingPercent: -1,
                     secondaryRemainingPercent: -1,
                     breakdownJson: "[]",
+                    metersJson: "[]",
                     resetText: "",
                     statusCode: "idle",
                     statusLabel: "",
@@ -200,6 +204,19 @@ PlasmoidItem {
         return "Unavailable"
     }
 
+    function popupMetersJson(obj) {
+        var rows = MeterIntake.intakeMeters(obj)
+        var lines = []
+        for (var i = 0; i < rows.length; i++) {
+            lines.push({
+                label: rows[i].label,
+                remainingPercent: rows[i].remainingPercent,
+                resetText: formatRelative(rows[i].resetAt || "")
+            })
+        }
+        return JSON.stringify(lines)
+    }
+
     function applyPayload(providerId, obj) {
         var idx = indexForProvider(providerId)
         if (idx < 0)
@@ -212,6 +229,7 @@ PlasmoidItem {
                 remainingPercent: -1,
                 secondaryRemainingPercent: -1,
                 breakdownJson: "[]",
+                metersJson: "[]",
                 resetText: "",
                 statusCode: "collector_error",
                 statusLabel: "Collector error",
@@ -233,6 +251,7 @@ PlasmoidItem {
         var remainingPercent = -1
         var secondaryRemainingPercent = -1
         var breakdownJson = "[]"
+        var metersJson = "[]"
         var resetText = ""
         var fetchedAtText = ""
         var hasQuota = false
@@ -267,7 +286,7 @@ PlasmoidItem {
                 }]
                 if (secondaryRemainingPercent >= 0) {
                     fallback.push({
-                        label: "Secondary",
+                        label: "Usage limit",
                         remainingPercent: secondaryRemainingPercent,
                         resetText: formatRelative(obj.resetAt || "")
                     })
@@ -277,9 +296,11 @@ PlasmoidItem {
             resetText = formatRelative(obj.resetAt)
             fetchedAtText = formatFetchedAt(obj.fetchedAt)
             hasQuota = remainingPercent >= 0 || (Array.isArray(obj.breakdown) && obj.breakdown.length > 0)
+            metersJson = popupMetersJson(obj)
         }
 
         var statusLabel = friendlyStatusLabel(statusCode, stale, hasQuota, fetchedAtText, false)
+        var errorText = (obj && typeof obj.error === "string") ? obj.error : ""
 
         providersModel.set(idx, {
             providerName: providerName,
@@ -287,10 +308,11 @@ PlasmoidItem {
             remainingPercent: remainingPercent,
             secondaryRemainingPercent: secondaryRemainingPercent,
             breakdownJson: breakdownJson,
+            metersJson: metersJson,
             resetText: resetText,
             statusCode: statusCode,
             statusLabel: statusLabel,
-            errorText: "",
+            errorText: errorText,
             fetchedAtText: fetchedAtText,
             stale: stale,
             hasQuota: hasQuota,
@@ -497,101 +519,67 @@ PlasmoidItem {
     }
 
     fullRepresentation: Item {
-        property int contentWidth: Kirigami.Units.gridUnit * 18
-        property int contentHeight: Kirigami.Units.gridUnit * 48
-
-        Layout.minimumWidth: contentWidth
-        Layout.minimumHeight: contentHeight
-        Layout.preferredWidth: contentWidth
-        Layout.preferredHeight: contentHeight
-        implicitWidth: contentWidth
-        implicitHeight: contentHeight
-        width: contentWidth
-        height: contentHeight
+        id: popup
+        implicitWidth: Kirigami.Units.gridUnit * 20
+        implicitHeight: Kirigami.Units.gridUnit * 32
+        Layout.minimumWidth: Kirigami.Units.gridUnit * 16
+        Layout.minimumHeight: Kirigami.Units.gridUnit * 16
+        Layout.preferredWidth: implicitWidth
+        Layout.preferredHeight: implicitHeight
+        Layout.maximumHeight: Kirigami.Units.gridUnit * 36
 
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: Kirigami.Units.largeSpacing
             spacing: Kirigami.Units.smallSpacing
 
-            PlasmaComponents.Label {
+            Kirigami.Heading {
                 Layout.fillWidth: true
+                level: 4
                 text: "Horizon"
-                font.bold: true
-                font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.2
             }
 
             PlasmaComponents.Label {
                 Layout.fillWidth: true
                 text: "AI Agent Usage"
-                opacity: 0.8
+                color: Kirigami.Theme.disabledTextColor
             }
 
-            PlasmaComponents.Label {
+            QQC2.ScrollView {
+                id: scroller
                 Layout.fillWidth: true
-                visible: providersModel.count === 0
-                wrapMode: Text.WordWrap
-                text: "No providers enabled. Open widget settings to enable Codex, Cursor, StepFun, or Claude."
-                opacity: 0.85
-            }
+                Layout.fillHeight: true
+                contentWidth: availableWidth
 
-            Kirigami.Separator {
-                Layout.fillWidth: true
-                Layout.topMargin: Kirigami.Units.smallSpacing
-                Layout.bottomMargin: Kirigami.Units.smallSpacing
-                visible: providersModel.count > 0
-            }
-
-            Repeater {
-                model: providersModel
-
-                delegate: ColumnLayout {
-                    id: providerBlock
-                    Layout.fillWidth: true
-                    spacing: Kirigami.Units.smallSpacing
-
-                    readonly property var usageLines: {
-                        try {
-                            return JSON.parse(model.breakdownJson || "[]")
-                        } catch (e) {
-                            return []
-                        }
-                    }
-
-                    readonly property bool hasPerLineReset: {
-                        var lines = providerBlock.usageLines
-                        for (var i = 0; i < lines.length; i++) {
-                            if (lines[i].resetText && String(lines[i].resetText).length > 0)
-                                return true
-                        }
-                        return false
-                    }
+                ColumnLayout {
+                    width: scroller.availableWidth
+                    spacing: Kirigami.Units.mediumSpacing
 
                     PlasmaComponents.Label {
                         Layout.fillWidth: true
-                        text: model.providerName
-                        font.bold: true
-                    }
-
-                    PlasmaComponents.Label {
-                        Layout.fillWidth: true
-                        visible: model.hasQuota && model.planName.length > 0
-                        text: model.planName
-                        opacity: 0.85
+                        visible: providersModel.count === 0
+                        wrapMode: Text.WordWrap
+                        text: "No providers enabled. Open widget settings to enable Codex, Cursor, StepFun, or Claude."
+                        color: Kirigami.Theme.disabledTextColor
                     }
 
                     Repeater {
-                        model: providerBlock.usageLines
-                        delegate: ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: Kirigami.Units.smallSpacing / 2
-                            visible: modelData.remainingPercent >= 0
+                        model: providersModel
 
-                            PlasmaComponents.Label {
-                                Layout.fillWidth: true
-                                visible: String(modelData.label || "").length > 0
-                                text: modelData.label
-                                opacity: 0.75
+                        delegate: ColumnLayout {
+                            id: providerBlock
+                            Layout.fillWidth: true
+                            spacing: Kirigami.Units.smallSpacing
+
+                            readonly property bool showMeters: (model.statusCode === "ok" || model.statusCode === "stale") && model.hasQuota
+                            readonly property var usageLines: {
+                                if (!providerBlock.showMeters)
+                                    return []
+                                try {
+                                    return JSON.parse(model.metersJson || "[]")
+                                } catch (e) {
+                                    return []
+                                }
                             }
 
                             RowLayout {
@@ -599,57 +587,91 @@ PlasmoidItem {
                                 spacing: Kirigami.Units.smallSpacing
 
                                 PlasmaComponents.Label {
-                                    text: modelData.remainingPercent + "%"
+                                    Layout.fillWidth: true
+                                    text: model.providerName
                                     font.bold: true
+                                    elide: Text.ElideRight
                                 }
 
-                                PlasmaComponents.ProgressBar {
+                                PlasmaComponents.Label {
+                                    visible: model.planName.length > 0
+                                    text: model.planName
+                                    color: Kirigami.Theme.disabledTextColor
+                                }
+                            }
+
+                            Repeater {
+                                model: providerBlock.usageLines
+                                delegate: ColumnLayout {
                                     Layout.fillWidth: true
-                                    from: 0
-                                    to: 100
-                                    value: Math.max(0, modelData.remainingPercent)
-                                    indeterminate: false
+                                    spacing: Kirigami.Units.smallSpacing / 2
+                                    visible: modelData.remainingPercent >= 0
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: Kirigami.Units.smallSpacing
+
+                                        PlasmaComponents.Label {
+                                            Layout.fillWidth: true
+                                            visible: String(modelData.label || "").length > 0
+                                            text: modelData.label
+                                            elide: Text.ElideRight
+                                            color: Kirigami.Theme.textColor
+                                        }
+
+                                        PlasmaComponents.Label {
+                                            text: modelData.remainingPercent + "% remaining"
+                                            font.bold: true
+                                        }
+                                    }
+
+                                    PlasmaComponents.ProgressBar {
+                                        Layout.fillWidth: true
+                                        from: 0
+                                        to: 100
+                                        value: Math.max(0, Math.min(100, modelData.remainingPercent))
+                                        indeterminate: false
+                                    }
+
+                                    PlasmaComponents.Label {
+                                        Layout.fillWidth: true
+                                        visible: String(modelData.resetText || "").length > 0
+                                        horizontalAlignment: Text.AlignRight
+                                        text: "Resets in " + modelData.resetText
+                                        color: Kirigami.Theme.disabledTextColor
+                                    }
                                 }
                             }
 
                             PlasmaComponents.Label {
                                 Layout.fillWidth: true
-                                visible: String(modelData.resetText || "").length > 0
-                                text: "Reset: " + modelData.resetText
-                                opacity: 0.85
+                                visible: model.statusLabel.length > 0
+                                wrapMode: Text.WordWrap
+                                text: model.statusLabel
+                                color: model.stale ? Kirigami.Theme.neutralTextColor
+                                     : (model.statusCode === "ok" ? Kirigami.Theme.textColor
+                                                                  : Kirigami.Theme.negativeTextColor)
+                            }
+
+                            PlasmaComponents.Label {
+                                Layout.fillWidth: true
+                                visible: model.errorText.length > 0
+                                wrapMode: Text.WordWrap
+                                text: model.errorText
+                                color: Kirigami.Theme.negativeTextColor
+                            }
+
+                            Kirigami.Separator {
+                                Layout.fillWidth: true
+                                visible: index < providersModel.count - 1
                             }
                         }
-                    }
-
-                    PlasmaComponents.Label {
-                        Layout.fillWidth: true
-                        visible: model.hasQuota && model.resetText.length > 0 && !providerBlock.hasPerLineReset
-                        text: "Reset: " + model.resetText
-                        opacity: 0.85
-                    }
-
-                    PlasmaComponents.Label {
-                        Layout.fillWidth: true
-                        visible: model.statusLabel.length > 0
-                        wrapMode: Text.WordWrap
-                        text: model.statusLabel
-                        color: (model.statusCode === "ok")
-                            ? Kirigami.Theme.textColor
-                            : (model.stale ? Kirigami.Theme.neutralTextColor : Kirigami.Theme.negativeTextColor)
-                    }
-
-                    Kirigami.Separator {
-                        Layout.fillWidth: true
-                        Layout.topMargin: Kirigami.Units.smallSpacing
-                        Layout.bottomMargin: Kirigami.Units.smallSpacing
-                        visible: index < providersModel.count - 1
                     }
                 }
             }
 
-            Item {
-                Layout.fillHeight: true
-                Layout.minimumHeight: Kirigami.Units.smallSpacing
+            Kirigami.Separator {
+                Layout.fillWidth: true
             }
 
             RowLayout {
@@ -665,7 +687,7 @@ PlasmoidItem {
                 PlasmaComponents.Label {
                     Layout.fillWidth: true
                     text: root.anyInFlight ? "Updating…" : ""
-                    opacity: 0.7
+                    color: Kirigami.Theme.disabledTextColor
                     elide: Text.ElideRight
                 }
             }
