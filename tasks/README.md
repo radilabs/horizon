@@ -6,7 +6,7 @@ Status: **idle**
 
 No executable task file.
 
-Last accepted phase: **Phase 6 — StepFun Auth Resilience** (`docs/handoffs/phase-6.md`, Horizon 0.1.1).
+Last accepted phase: **Phase 6.5 — Claude Usage** (`docs/handoffs/phase-6.5.md`). Stage 1 is closed. Stage 2 is not opened. Horizon release remains **0.1.1**.
 
 Historical phase task files remain under `tasks/` as execution evidence only. Their presence does not authorize additional work.
 

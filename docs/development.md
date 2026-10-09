@@ -45,8 +45,9 @@ scripts/
 journalctl --user -f
 journalctl --user --since "5 min ago" --no-pager | grep -E 'horizon|com.radilabs|main.qml|QQml'
 ai-usage status codex --json | jq .
+ai-usage status claude --json | jq .
 ```
 
 ## Credentials (dev)
 
-Same rules as production: never commit tokens; StepFun only via `ai-usage auth stepfun set` / settings → KWallet.
+Same rules as production: never commit tokens; StepFun only via `ai-usage auth stepfun set` / settings → KWallet. Claude uses the existing Claude Code credentials file read-only (`ai-usage status claude --json`).

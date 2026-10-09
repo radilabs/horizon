@@ -18,6 +18,10 @@
       <label>Enable StepFun</label>
       <default>true</default>
     </entry>
+    <entry name="enableClaude" type="Bool">
+      <label>Enable Claude</label>
+      <default>true</default>
+    </entry>
     <entry name="refreshIntervalMinutes" type="Int">
       <label>Refresh interval (minutes)</label>
       <default>15</default>

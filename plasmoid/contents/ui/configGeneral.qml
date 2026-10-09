@@ -115,6 +115,11 @@ ColumnLayout {
             checked: plasmoid.configuration.enableStepfun
             onCheckedChanged: plasmoid.configuration.enableStepfun = checked
         }
+        PlasmaComponents.CheckBox {
+            text: i18n("Claude")
+            checked: plasmoid.configuration.enableClaude
+            onCheckedChanged: plasmoid.configuration.enableClaude = checked
+        }
 
         QQC2.ComboBox {
             id: intervalBox

@@ -16,6 +16,7 @@ if str(_ROOT) not in sys.path:
 
 from cache import stale_payload, write_success  # noqa: E402
 from providers import ProviderError, error_payload  # noqa: E402
+from providers.claude import ClaudeProvider  # noqa: E402
 from providers.codex import CodexProvider  # noqa: E402
 from providers.cursor import CursorProvider  # noqa: E402
 from providers.stepfun import StepFunProvider  # noqa: E402
@@ -28,6 +29,7 @@ PROVIDERS = {
     "codex": CodexProvider,
     "cursor": CursorProvider,
     "stepfun": StepFunProvider,
+    "claude": ClaudeProvider,
 }
 
 
@@ -43,6 +45,8 @@ def build_provider(provider_id: str, auth_file: str | None):
         return cls(auth_path=Path(auth_file).expanduser() if auth_file else None)
     if provider_id == "cursor":
         return cls(state_db=Path(auth_file).expanduser() if auth_file else None)
+    if provider_id == "claude":
+        return cls(credentials_path=Path(auth_file).expanduser() if auth_file else None)
     return cls()
 
 
@@ -157,7 +161,7 @@ def main(argv: list[str] | None = None) -> int:
     status.add_argument(
         "--auth-file",
         default=None,
-        help="Optional auth path override (Codex: auth.json; Cursor: state.vscdb)",
+        help="Optional auth path override (Codex: auth.json; Cursor: state.vscdb; Claude: .credentials.json)",
     )
     status.add_argument(
         "--force-refresh",

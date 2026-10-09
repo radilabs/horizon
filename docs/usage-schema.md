@@ -133,6 +133,34 @@ This is the only shape the Plasma UI understands. Provider-specific upstream dat
 }
 ```
 
+## Sanitized Claude success (subscription windows)
+
+`utilization` on the Claude usage payload is percent **used**. Horizon stores percent **remaining**. Session is the primary meter when present. See `docs/providers/claude.md`.
+
+```json
+{
+  "provider": "claude",
+  "displayName": "Claude",
+  "plan": "Pro",
+  "remainingPercent": 99,
+  "secondaryRemainingPercent": 78,
+  "breakdown": [
+    {
+      "label": "Current session",
+      "remainingPercent": 99,
+      "resetAt": "2026-10-09T14:00:00+00:00"
+    },
+    {
+      "label": "Current week (all models)",
+      "remainingPercent": 78,
+      "resetAt": "2026-10-12T02:00:00+00:00"
+    }
+  ],
+  "resetAt": "2026-10-09T14:00:00+00:00",
+  "status": "ok"
+}
+```
+
 ## Forbidden fields
 
 Tokens, cookies, authorization headers, credential paths with secrets, raw upstream API blobs.

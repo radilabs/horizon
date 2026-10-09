@@ -10,7 +10,7 @@ Each provider implementation must support:
 
 | Concern | Method / attribute | Notes |
 |---------|--------------------|--------|
-| Identity | `id: str` | Stable CLI id (`codex`, `cursor`, `stepfun`) |
+| Identity | `id: str` | Stable CLI id (`codex`, `cursor`, `stepfun`, `claude`) |
 | Display | `display_name: str` | Default label before fetch |
 | Availability | `detect() -> None` | Raises `ProviderError` if auth/local prerequisites missing |
 | Retrieval | `fetch_usage(**opts) -> dict` | Returns **normalized** usage payload (`status=ok` or raises) |
@@ -35,6 +35,7 @@ PROVIDERS = {
   "codex": CodexProvider,
   "cursor": CursorProvider,
   "stepfun": StepFunProvider,
+  "claude": ClaudeProvider,
 }
 ```
 
@@ -51,5 +52,6 @@ Unknown provider ids fail with a clear error (no traceback for normal invalid in
 * `codex` — ChatGPT / Codex usage (Phase 1–2)
 * `cursor` — Cursor DashboardService usage via local `state.vscdb` (Phase 3)
 * `stepfun` — StepFun Step Plan via user-supplied Oasis token in KWallet (Phase 4)
+* `claude` — Claude Pro/Max usage via read-only Claude Code credentials (Phase 6.5)
 
-Provider-specific auth path overrides may be passed through the generic `--auth-file` flag (Codex: `auth.json`; Cursor: `state.vscdb`). StepFun uses `ai-usage auth stepfun …` and the OS credential store instead. Cursor auth remains read-only.
+Provider-specific auth path overrides may be passed through the generic `--auth-file` flag (Codex: `auth.json`; Cursor: `state.vscdb`; Claude: `.credentials.json`). StepFun uses `ai-usage auth stepfun …` and the OS credential store instead. Cursor and Claude auth remain read-only. Claude refresh is forbidden (ADR-0011).

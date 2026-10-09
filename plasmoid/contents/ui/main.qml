@@ -22,7 +22,7 @@ PlasmoidItem {
     switchHeight: Kirigami.Units.gridUnit * 8
     activationTogglesExpanded: true
 
-    readonly property var allProviderIds: ["codex", "cursor", "stepfun"]
+    readonly property var allProviderIds: ["codex", "cursor", "stepfun", "claude"]
 
     property string compactText: "AI"
     property string tooltipSummary: "AI Agent Usage"
@@ -64,6 +64,8 @@ PlasmoidItem {
             ids.push("cursor")
         if (plasmoid.configuration.enableStepfun)
             ids.push("stepfun")
+        if (plasmoid.configuration.enableClaude)
+            ids.push("claude")
         return ids
     }
 
@@ -74,6 +76,8 @@ PlasmoidItem {
             return plasmoid.configuration.enableCursor
         if (providerId === "stepfun")
             return plasmoid.configuration.enableStepfun
+        if (providerId === "claude")
+            return plasmoid.configuration.enableClaude
         return false
     }
 
@@ -417,6 +421,7 @@ PlasmoidItem {
         function onEnableCodexChanged() { root.onConfigChanged() }
         function onEnableCursorChanged() { root.onConfigChanged() }
         function onEnableStepfunChanged() { root.onConfigChanged() }
+        function onEnableClaudeChanged() { root.onConfigChanged() }
         function onRefreshIntervalMinutesChanged() {
             refreshTimer.interval = Math.max(1, plasmoid.configuration.refreshIntervalMinutes) * 60 * 1000
             refreshTimer.restart()
@@ -493,7 +498,7 @@ PlasmoidItem {
 
     fullRepresentation: Item {
         property int contentWidth: Kirigami.Units.gridUnit * 18
-        property int contentHeight: Kirigami.Units.gridUnit * 36
+        property int contentHeight: Kirigami.Units.gridUnit * 48
 
         Layout.minimumWidth: contentWidth
         Layout.minimumHeight: contentHeight
@@ -526,7 +531,7 @@ PlasmoidItem {
                 Layout.fillWidth: true
                 visible: providersModel.count === 0
                 wrapMode: Text.WordWrap
-                text: "No providers enabled. Open widget settings to enable Codex, Cursor, or StepFun."
+                text: "No providers enabled. Open widget settings to enable Codex, Cursor, StepFun, or Claude."
                 opacity: 0.85
             }
 

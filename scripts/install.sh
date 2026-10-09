@@ -30,6 +30,7 @@ install -m 0644 "${ROOT}/collector/providers/__init__.py" "${LIB_DIR}/providers/
 install -m 0644 "${ROOT}/collector/providers/codex.py" "${LIB_DIR}/providers/codex.py"
 install -m 0644 "${ROOT}/collector/providers/cursor.py" "${LIB_DIR}/providers/cursor.py"
 install -m 0644 "${ROOT}/collector/providers/stepfun.py" "${LIB_DIR}/providers/stepfun.py"
+install -m 0644 "${ROOT}/collector/providers/claude.py" "${LIB_DIR}/providers/claude.py"
 
 # Stable launcher (not a symlink into the git checkout)
 cat > "${BIN_DIR}/ai-usage" <<EOF

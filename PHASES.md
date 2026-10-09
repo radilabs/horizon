@@ -519,9 +519,9 @@ Do not begin Groq discovery, another provider, or any additional capability phas
 
 ---
 
-# Phase 6.5 — Claude Usage (Planned — Not Authorized)
+# Phase 6.5 — Claude Usage
 
-> **Status:** planned contract recorded by owner decision on 2026-10-08 (see Stage 1 Owner Amendment). It may be refined until the owners authorize it in `TASKS.md`. Once authorized it becomes an immutable execution boundary like any other phase.
+> **Status:** accepted 2026-10-09. Snapshot: `docs/handoffs/phase-6.5.md`. The contract below is the historical execution boundary.
 
 ## Goal
 

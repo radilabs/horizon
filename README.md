@@ -2,7 +2,7 @@
 
 **Horizon shows the remaining quota of the AI coding tools you already use, directly in KDE Plasma.**
 
-Horizon is a KDE Plasma widget for Linux that keeps an eye on OpenAI Codex (ChatGPT Plus), Cursor, and the StepFun Step Plan, so you can see when you are close to a limit without opening three dashboards.
+Horizon is a KDE Plasma widget for Linux that keeps an eye on OpenAI Codex (ChatGPT Plus), Cursor, Claude, and the StepFun Step Plan, so you can see when you are close to a limit without opening separate dashboards.
 
 Compact panel: one meaningful remaining percentage — the lowest among enabled providers.
 Popup: per-provider plan, meters, reset times, and clear stale / auth / error labels.
@@ -15,7 +15,7 @@ Product page and release overview: [Radilabs Horizon](https://www.radilabs.com/h
 
 - Panel widget showing the lowest remaining quota across enabled providers
 - Expanded popup with per-provider plan, meters, and reset times
-- Codex, Cursor, and StepFun Step Plan support
+- Codex, Cursor, Claude, and StepFun Step Plan support
 - Per-provider enable/disable with a configurable refresh interval (default 15 minutes)
 - Background refresh with per-provider overlap protection
 - Stale, authentication, and provider-error labels instead of silent failures
@@ -25,7 +25,7 @@ Product page and release overview: [Radilabs Horizon](https://www.radilabs.com/h
 
 ## Who it is for
 
-Horizon is for developers who use AI coding services on Linux with a KDE Plasma desktop and need remaining quota at a glance. It suits everyday Codex, Cursor, and StepFun users who prefer one always-visible panel entry over checking several provider dashboards.
+Horizon is for developers who use AI coding services on Linux with a KDE Plasma desktop and need remaining quota at a glance. It suits everyday Codex, Cursor, Claude, and StepFun users who prefer one always-visible panel entry over checking several provider dashboards.
 
 Horizon is intentionally **not** a provider login client, an OAuth broker, a browser extension, or a quota forecasting tool. It reuses the credentials you already have on this machine.
 
@@ -35,6 +35,7 @@ Horizon is intentionally **not** a provider login client, an OAuth broker, a bro
 |----------|------|
 | **OpenAI Codex** (ChatGPT Plus) | Reuses `~/.codex/auth.json` |
 | **Cursor** | Reads local Cursor session (`state.vscdb`) read-only |
+| **Claude** (Pro/Max) | Reads Claude Code credentials read-only |
 | **StepFun Step Plan** | User-supplied Oasis token stored only in **KWallet** |
 
 Horizon does **not** implement provider login/OAuth, browser cookie import, or password storage.
@@ -74,7 +75,7 @@ There is no CI release pipeline: the git tag plus `scripts/install.sh` is the su
 
 Widget settings (right-click → Configure Horizon):
 
-* Enable/disable **Codex**, **Cursor**, **StepFun**
+* Enable/disable **Codex**, **Cursor**, **StepFun**, **Claude**
 * Refresh interval: 5 / 10 / **15** / 30 / 60 minutes (default 15)
 * StepFun token management
 
@@ -100,6 +101,14 @@ Stay signed in to the Cursor app. Horizon reads session state transiently and ne
 ai-usage status cursor --json
 ```
 
+### Claude
+
+Stay signed in with Claude Code so `~/.claude/.credentials.json` exists. Horizon reads that file and does not refresh or rewrite it. If the session is missing or rejected, sign in again with Claude Code.
+
+```bash
+ai-usage status claude --json
+```
+
 ### StepFun
 
 Paste an existing Oasis token (from a StepFun web session). Stored only in KWallet. If the stored pair is still accepted by StepFun’s unofficial refresh endpoint, Horizon performs **one** automatic refresh and writes KWallet only after a live usage check succeeds.
@@ -121,7 +130,7 @@ Status is `Configured · working` only after StepFun accepts the token — not m
 
 ## Security
 
-* Prefer provider-owned credentials (Codex, Cursor)
+* Prefer provider-owned credentials (Codex, Cursor, Claude). Claude credentials stay read-only (ADR-0011)
 * StepFun token: OS credential store only (ADR-0009); bounded Oasis refresh write-back (ADR-0010)
 * Usage cache (`~/.cache/horizon/usage-*.json`): normalized non-secret data only
 * No telemetry / analytics / cloud sync
@@ -135,6 +144,7 @@ Quota APIs for these tools are **unofficial** and can break when providers chang
 * [docs/providers/codex.md](docs/providers/codex.md)
 * [docs/providers/cursor.md](docs/providers/cursor.md)
 * [docs/providers/stepfun.md](docs/providers/stepfun.md)
+* [docs/providers/claude.md](docs/providers/claude.md)
 
 Architecture: [provider-contract](docs/provider-contract.md), [usage-schema](docs/usage-schema.md), [cache](docs/cache.md).  
 Development notes: [docs/development.md](docs/development.md).  

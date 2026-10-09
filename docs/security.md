@@ -2,7 +2,7 @@
 
 ## Credential ownership
 
-Prefer **provider-owned** local authentication when it exists (Codex `auth.json`, Cursor `state.vscdb`).
+Prefer **provider-owned** local authentication when it exists (Codex `auth.json`, Cursor `state.vscdb`, Claude Code `.credentials.json`).
 
 When a provider has **no** local credential store (StepFun), Horizon may securely store a **user-supplied** secret in the **OS credential store** (KWallet). See ADR-0009.
 
@@ -20,6 +20,14 @@ Horizon must not:
 Authentication data may be read only when required to perform a provider request.
 
 Credentials must be retained only in memory for the duration of that request and must not be serialized into Horizon outputs.
+
+## Claude Code session
+
+* Source: `~/.claude/.credentials.json` (Claude Code owns this file)
+* Horizon reads it read-only for one usage request (ADR-0011)
+* Horizon does **not** refresh, rotate, or copy the access token or refresh token
+* Missing, expired, or rejected sessions are `auth_unavailable`; the user re-authenticates in Claude Code
+* Never place Claude tokens in Plasma config, cache, docs, or evidence
 
 ## StepFun Oasis token
 
@@ -54,12 +62,14 @@ Inspect Horizon cache (must be non-secret normalized usage only):
 jq . "${XDG_CACHE_HOME:-$HOME/.cache}/horizon/usage-codex.json"
 jq . "${XDG_CACHE_HOME:-$HOME/.cache}/horizon/usage-cursor.json"
 jq . "${XDG_CACHE_HOME:-$HOME/.cache}/horizon/usage-stepfun.json"
+jq . "${XDG_CACHE_HOME:-$HOME/.cache}/horizon/usage-claude.json"
 ```
 
 Never open or commit:
 
 * Cursor `state.vscdb` / Cookies / `storage.json`
 * Codex `auth.json`
+* Claude Code `~/.claude/.credentials.json`
 * any Oasis token material
 
 Inspect any matches manually. Treat matches as candidates, not automatic leaks.
