@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Stage 1 / Phase 6.5 — Claude usage. Accepted 2026-10-09. The tagged release is still 0.1.1.
+
+* Claude Pro/Max usage from the existing Claude Code login (`~/.claude/.credentials.json`), read-only
+* Current session and current week shown with the provider’s own labels
+* Missing or rejected Claude sessions stay `auth_unavailable`; Horizon does not refresh or copy the credentials (ADR-0011)
+
 ## 0.1.1 — 2026-09-11
 
 Stage 1 / Phase 6 — StepFun auth resilience.

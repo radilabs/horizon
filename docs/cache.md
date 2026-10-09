@@ -24,7 +24,13 @@ Example for StepFun:
 ~/.cache/horizon/usage-stepfun.json
 ```
 
-Not in the git repository. Not beside provider credentials. Never contains Oasis tokens or cookies.
+Example for Claude:
+
+```text
+~/.cache/horizon/usage-claude.json
+```
+
+Not in the git repository. Not beside provider credentials. Never contains Oasis tokens, Claude tokens, or cookies.
 
 ## Format
 

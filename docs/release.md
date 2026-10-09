@@ -21,6 +21,7 @@ git checkout v0.1.1   # or a release tarball
 ai-usage status codex --json
 ai-usage status cursor --json
 ai-usage status stepfun --json
+ai-usage status claude --json
 ```
 
 Confirm metadata:
@@ -37,7 +38,8 @@ kpackagetool6 --type Plasma/Applet --show com.radilabs.horizon | grep -i version
 4. Popup shows only enabled providers
 5. Settings persist provider toggles + refresh interval
 6. StepFun token set/replace/remove via settings or CLI (KWallet only); expired tokens may auto-refresh once from stored material (ADR-0010)
-7. Secret audit: no tokens in repo/cache/docs
+7. Claude reads `~/.claude/.credentials.json` read-only and does not refresh it (ADR-0011)
+8. Secret audit: no tokens in repo/cache/docs
 
 ## Tagging and GitHub Release
 

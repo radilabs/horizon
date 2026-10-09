@@ -7,7 +7,7 @@ Horizon is a KDE Plasma widget for Linux that keeps an eye on OpenAI Codex (Chat
 Compact panel: one meaningful remaining percentage — the lowest among enabled providers.
 Popup: per-provider plan, meters, reset times, and clear stale / auth / error labels.
 
-<img src="docs/assets/horizon-usage.png" alt="Horizon expanded view showing remaining quotas for Codex, Cursor and StepFun with plan names, meters and reset times" width="300">
+<img src="docs/assets/horizon-usage.png" alt="Horizon expanded view showing remaining quotas for Codex, Cursor, StepFun, and Claude with plan names, meters and reset times" width="300">
 
 Product page and release overview: [Radilabs Horizon](https://www.radilabs.com/horizon/)
 
@@ -80,6 +80,8 @@ Widget settings (right-click → Configure Horizon):
 * StepFun token management
 
 <img src="docs/assets/horizon-settings.png" alt="Horizon settings window with Codex, Cursor and StepFun enabled, a 15 minute refresh interval, and a configured StepFun credential" width="600">
+
+That settings picture is from before the Claude checkbox. Claude is the next provider in the same list.
 
 Disabled providers are not queried, refreshed, shown, or included in the compact summary. Disabling does **not** delete credentials.
 
