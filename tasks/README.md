@@ -1,13 +1,12 @@
 # Task Execution
 
-Current stage: **Stage 3 — Maintenance & Hardening**  
-Current phase: **Phase 10 — Post-0.2.0 Remediation**  
-Status: **implemented; Watcher PASS; awaiting owner acceptance**  
-Task file: `tasks/phase-10-post-0.2.0-remediation.md`
+Current stage: **none authorized**  
+Current phase: **none authorized**  
+Status: **idle**
 
-Phase 10 is the only executable work. Its scope is findings W-01..W-14 of `reports/post-v0.2.0-external-watcher-1.md`, as bounded by `PHASES.md` Phase 10. Horizon stays at **0.2.0**.
+Stage 3 is closed. Phase 10 was accepted on 2026-11-27. Snapshot: `docs/handoffs/phase-10.md`. Horizon release is **0.2.1**.
 
-Stage 2 is closed history. Phase 9 was accepted on 2026-10-09. Snapshot: `docs/handoffs/phase-9.md`.
+No phase is executable. Stage 2 is closed history. Phase 9 was accepted on 2026-10-09. Snapshot: `docs/handoffs/phase-9.md`.
 
 All other phase task files under `tasks/` are historical execution evidence only. Their presence does not authorize additional work.
 

@@ -6,24 +6,23 @@ Only an explicitly authorized phase may be executed.
 
 ## Current Execution
 
-- **Current stage:** Stage 3 — Maintenance & Hardening
-- **Current phase:** Phase 10 — Post-0.2.0 Remediation
-- **Status:** implemented; Watcher PASS (attempt 3); awaiting owner acceptance
-- **Task file:** `tasks/phase-10-post-0.2.0-remediation.md`
-- **Branch:** `phase-10-post-0.2.0-remediation` (from `eadcfb3`)
-- **Input:** `reports/post-v0.2.0-external-watcher-1.md` (findings W-01..W-14)
+- **Current stage:** none authorized
+- **Current phase:** none authorized
+- **Status:** idle
 
-Phase 10 is the only executable work. Scope is limited to W-01..W-14 as written in `PHASES.md` Phase 10. Horizon stays at **0.2.0**: no version bump, tag or release in this phase.
+Stage 3 is closed. Phase 10 was accepted on 2026-11-27. Snapshot: `docs/handoffs/phase-10.md`. Horizon release is **0.2.1** (`v0.2.1`).
+
+No Stage or Phase is authorized. Do not begin new work.
 
 Stage 2 is closed. Phase 9 was accepted on 2026-10-09. Snapshot: `docs/handoffs/phase-9.md`.
 
 ## Stage 3 Roadmap
 
-**Stage 3 — Maintenance & Hardening (opened 2026-11-27):**
+**Stage 3 — Maintenance & Hardening (closed 2026-11-27):**
 
-- Phase 10 — Post-0.2.0 Remediation (authorized 2026-11-27; executable)
+- Phase 10 — Post-0.2.0 Remediation (accepted 2026-11-27)
 
-No other Stage 3 phase is authorized.
+No phase is executable.
 
 
 ## Stage 2 Roadmap
@@ -52,14 +51,16 @@ tasks/
 ├── phase-7-provider-information-contract.md  # ACCEPTED (historical)
 ├── phase-8-plasma-ui-refresh.md          # ACCEPTED (historical)
 ├── phase-9-compact-ux-release-polish.md  # ACCEPTED (historical)
-└── phase-10-post-0.2.0-remediation.md    # AUTHORIZED 2026-11-27 (executable)
+└── phase-10-post-0.2.0-remediation.md    # ACCEPTED (historical)
 ```
 
 Historical task files are execution evidence only. Their presence does not authorize further work.
 
 ## History
 
-Last completed phase: **Phase 9 — Compact UX and Release Polish** (accepted 2026-10-09; Horizon **0.2.0**).
+Last completed phase: **Phase 10 — Post-0.2.0 Remediation** (accepted 2026-11-27; Horizon **0.2.1**).
+
+Phase 9 — Compact UX and Release Polish was accepted 2026-10-09 (Horizon **0.2.0**).
 
 Phase 8 — Plasma UI/UX Refresh was accepted 2026-10-09.
 
@@ -71,7 +72,7 @@ Phase 6 — StepFun Auth Resilience was accepted 2026-09-11 (Horizon **0.1.1**).
 
 Phases 0–5 predate adoption of the current Stage-aware Factory shell. Their accepted history is preserved as-is and must not be rewritten retrospectively.
 
-Stage 1 closed after Phase 6.5. Stage 2 closed after Phase 9. Stage 3 was opened on 2026-11-27 with Phase 10.
+Stage 1 closed after Phase 6.5. Stage 2 closed after Phase 9. Stage 3 closed after Phase 10.
 
 ## Authority
 

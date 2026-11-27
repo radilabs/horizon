@@ -11,12 +11,12 @@ Keep these in sync for each release:
 * Annotated git tag `vX.Y.Z`
 * GitHub Release for that tag (manual; no CI pipeline)
 
-Current release: **0.2.0** (`v0.2.0`).
+Current release: **0.2.1** (`v0.2.1`).
 
 ## Produce / install from a clean tree
 
 ```bash
-git checkout v0.2.0   # or a release tarball
+git checkout v0.2.1   # or a release tarball
 ./scripts/install.sh
 ai-usage status codex --json
 ai-usage status cursor --json
@@ -44,11 +44,11 @@ kpackagetool6 --type Plasma/Applet --show com.radilabs.horizon | grep -i version
 ## Tagging and GitHub Release
 
 ```bash
-git tag -a v0.2.0 -m "Horizon 0.2.0"
-git push origin v0.2.0
-awk '/^## /{if (on) exit; if ($0 ~ /^## 0\.2\.0([^0-9]|$)/) on=1} on' CHANGELOG.md > /tmp/horizon-v0.2.0-notes.md
-gh release create v0.2.0 --title "Horizon 0.2.0" --notes-file /tmp/horizon-v0.2.0-notes.md
-rm -f /tmp/horizon-v0.2.0-notes.md
+git tag -a v0.2.1 -m "Horizon 0.2.1"
+git push origin v0.2.1
+awk '/^## /{if (on) exit; if ($0 ~ /^## 0\.2\.1([^0-9]|$)/) on=1} on' CHANGELOG.md > /tmp/horizon-v0.2.1-notes.md
+gh release create v0.2.1 --title "Horizon 0.2.1" --notes-file /tmp/horizon-v0.2.1-notes.md
+rm -f /tmp/horizon-v0.2.1-notes.md
 ```
 
 Use only the changelog section for that version as the release notes. Do not attach secrets.

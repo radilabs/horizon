@@ -831,7 +831,9 @@ Correct verified defects, quality gaps and documentation drift in the accepted H
 
 ## Planned Phases
 
-* Phase 10 — Post-0.2.0 Remediation (authorized 2026-11-27).
+* Phase 10 — Post-0.2.0 Remediation (accepted 2026-11-27; snapshot `docs/handoffs/phase-10.md`).
+
+> **Status:** closed 2026-11-27. Phase 10 is accepted. Horizon **0.2.1**. No later phase is authorized.
 
 No other Stage 3 phase is planned or authorized.
 
@@ -843,7 +845,7 @@ All authorized Stage 3 phases are accepted. The four existing providers (Codex, 
 
 # Phase 10 — Post-0.2.0 Remediation
 
-> **Status:** implemented; Watcher PASS 2026-11-27; awaiting owner acceptance. Task: `tasks/phase-10-post-0.2.0-remediation.md`. Branch `phase-10-post-0.2.0-remediation` from `eadcfb3`.
+> **Status:** accepted 2026-11-27. Snapshot: `docs/handoffs/phase-10.md`. Released as Horizon **0.2.1** (`v0.2.1`).
 
 ## Goal
 

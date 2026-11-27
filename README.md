@@ -44,14 +44,14 @@ Horizon does **not** implement provider login/OAuth, browser cookie import, or p
 
 ## Install
 
-Current release: **0.2.0** — [GitHub release v0.2.0](https://github.com/radilabs/horizon/releases/tag/v0.2.0) · [Radilabs Horizon page](https://www.radilabs.com/horizon/)
+Current release: **0.2.1** — [GitHub release v0.2.1](https://github.com/radilabs/horizon/releases/tag/v0.2.1) · [Radilabs Horizon page](https://www.radilabs.com/horizon/)
 
 Dependencies: Plasma 6, Python 3, Python D-Bus (`python3-dbus`) for KWallet, and a clipboard tool (`wl-paste` on Wayland, or Klipper via `qdbus6`) for the optional settings token entry.
 
 ```bash
 git clone https://github.com/radilabs/horizon.git
 cd horizon
-git checkout v0.2.0        # release tag; omit for the current tip of main
+git checkout v0.2.1        # release tag; omit for the current tip of main
 ./scripts/install.sh
 ```
 
@@ -160,7 +160,7 @@ Architecture: [provider-contract](docs/provider-contract.md), [usage-schema](doc
 Development notes: [docs/development.md](docs/development.md).  
 Release process: [docs/release.md](docs/release.md).
 
-Version: **0.2.0**
+Version: **0.2.1**
 
 ## License
 

@@ -1,6 +1,8 @@
 # Stage 3 / Phase 10 — Post-0.2.0 Remediation
 
-**Status: implemented; Watcher PASS; awaiting owner acceptance** (authorized 2026-11-27). Not accepted.
+**Status: ACCEPTED** (2026-11-27). This file is historical execution evidence. It is **not** executable.
+
+Accepted snapshot: `docs/handoffs/phase-10.md`. The owner approved Horizon **0.2.1** with this acceptance.
 
 **Authority:** `PHASES.md` Stage 3 / Phase 10 (the immutable contract), `TASKS.md`
 **Input:** `reports/post-v0.2.0-external-watcher-1.md` (external Watcher audit of `v0.2.0`, findings W-01..W-14)

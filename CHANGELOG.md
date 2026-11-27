@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1 — 2026-11-27
+
+* StepFun shows Subscription Credits and Top-up Credits when those rates are separate, and reuses the usage check after a token refresh
+* A StepFun outage is reported as unavailable. A rejected token is still auth_failed
+* The cache refuses secret-like keys nested in a payload
+* Reset and cache-age text stay current while the popup is open
+* Installer pipe safety, Refresh key handling, and the 0.2.0 audit's doc corrections
+
 ## 0.2.0 — 2026-10-09
 
 * Claude Pro/Max usage from the existing Claude Code login (`~/.claude/.credentials.json`), read-only. Horizon does not refresh or copy those credentials
