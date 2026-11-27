@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls as QQC2
+import org.kde.plasma.components as PlasmaComponents
 import QtTest
 
 TestCase {
@@ -19,16 +19,25 @@ TestCase {
         activations += 1
     }
 
-    QQC2.ToolButton {
+    PlasmaComponents.ToolButton {
         id: refreshButton
         text: "Refresh"
         focus: true
         enabled: providers > 0
         Accessible.name: busy ? "Refreshing" : "Refresh"
         onClicked: refresh()
-        Keys.onReturnPressed: if (enabled) refresh()
-        Keys.onEnterPressed: if (enabled) refresh()
-        Keys.onSpacePressed: if (enabled) refresh()
+        Keys.onReturnPressed: function (event) {
+            if (enabled) {
+                event.accepted = true
+                refresh()
+            }
+        }
+        Keys.onEnterPressed: function (event) {
+            if (enabled) {
+                event.accepted = true
+                refresh()
+            }
+        }
     }
 
     Shortcut {
@@ -42,6 +51,7 @@ TestCase {
         activations = 0
         busy = false
         providers = 2
+        refreshButton.forceActiveFocus()
     }
 
     function test_f5_refreshes() {
@@ -51,11 +61,31 @@ TestCase {
         compare(refreshButton.Accessible.name, "Refreshing")
     }
 
+    function test_space_activates_once() {
+        keyClick(Qt.Key_Space)
+        compare(activations, 1)
+        compare(busy, true)
+    }
+
+    function test_return_activates_once() {
+        keyClick(Qt.Key_Return)
+        compare(activations, 1)
+        compare(busy, true)
+    }
+
+    function test_enter_activates_once() {
+        keyClick(Qt.Key_Enter)
+        compare(activations, 1)
+        compare(busy, true)
+    }
+
     function test_disabled_without_providers() {
         providers = 0
         keyClick(Qt.Key_F5)
         refreshButton.forceActiveFocus()
+        keyClick(Qt.Key_Space)
         keyClick(Qt.Key_Return)
+        keyClick(Qt.Key_Enter)
         compare(activations, 0)
         compare(refreshButton.enabled, false)
     }

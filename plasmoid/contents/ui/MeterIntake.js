@@ -181,3 +181,59 @@ function tooltipText(providers) {
         blocks.push(providerTooltip(providers[i]))
     return blocks.join("\n")
 }
+
+function shellSingleQuote(path) {
+    return "'" + String(path).replace(/'/g, "'\\''") + "'"
+}
+
+function collectorCommandForBin(binPath, providerId) {
+    return shellSingleQuote(binPath) + " status " + providerId + " --json"
+}
+
+function providerIdFromCommand(cmd) {
+    var m = /\sstatus\s+([A-Za-z0-9_-]+)\s+--json$/.exec(String(cmd || "").trim())
+    return m ? m[1] : ""
+}
+
+function formatRelative(iso, nowMs) {
+    if (!iso)
+        return ""
+    var ms = Date.parse(iso)
+    if (isNaN(ms))
+        return iso
+    var now = (typeof nowMs === "number" && isFinite(nowMs)) ? nowMs : Date.now()
+    var diffSec = Math.floor((ms - now) / 1000)
+    var sign = ""
+    if (diffSec < 0) {
+        sign = "-"
+        diffSec = -diffSec
+    }
+    var days = Math.floor(diffSec / 86400)
+    var hours = Math.floor((diffSec % 86400) / 3600)
+    var mins = Math.floor((diffSec % 3600) / 60)
+    if (days > 0)
+        return sign + days + "d " + hours + "h"
+    if (hours > 0)
+        return sign + hours + "h " + mins + "m"
+    return sign + mins + "m"
+}
+
+function formatFetchedAt(iso, nowMs) {
+    if (!iso)
+        return ""
+    var ms = Date.parse(iso)
+    if (isNaN(ms))
+        return iso
+    var now = (typeof nowMs === "number" && isFinite(nowMs)) ? nowMs : Date.now()
+    var agoSec = Math.max(0, Math.floor((now - ms) / 1000))
+    var days = Math.floor(agoSec / 86400)
+    var hours = Math.floor((agoSec % 86400) / 3600)
+    var mins = Math.floor((agoSec % 3600) / 60)
+    if (days > 0)
+        return days + "d " + hours + "h ago"
+    if (hours > 0)
+        return hours + "h " + mins + "m ago"
+    if (mins > 0)
+        return mins + "m ago"
+    return "just now"
+}

@@ -16,9 +16,14 @@ if str(COLLECTOR) not in sys.path:
     sys.path.insert(0, str(COLLECTOR))
 
 from cache import stale_payload, write_success  # noqa: E402
-from providers import error_payload  # noqa: E402
-from providers.claude import ClaudeProvider  # noqa: E402
-from providers.codex import CodexProvider  # noqa: E402
+from providers import ProviderError, error_payload  # noqa: E402
+from providers.claude import (  # noqa: E402
+    ClaudeProvider,
+    _expired as claude_expired,
+    _remaining_from_used as claude_remaining_from_used,
+    _utilization as claude_utilization,
+)
+from providers.codex import CodexProvider, _meter_from_window as codex_meter_from_window  # noqa: E402
 from providers.contract import meters_from_payload, project_ok  # noqa: E402
 from providers.cursor import CursorProvider  # noqa: E402
 from providers.stepfun import StepFunProvider  # noqa: E402
@@ -207,6 +212,95 @@ class StepFunContractTests(unittest.TestCase):
         self.assertNotEqual(out["meters"][0]["resetAt"], out["meters"][1]["resetAt"])
         self.assertEqual(out["meters"], out["breakdown"])
 
+    def test_credit_valid_buckets_give_single_credits_meter(self) -> None:
+        out = StepFunProvider()._normalize(
+            {
+                "plan_family": 2,
+                "plan_credit_rate_limit": {
+                    "credit_buckets": [
+                        {"credit_total": 100, "credit_residual": 30},
+                        {"credit_total": 300, "credit_residual": 210},
+                    ],
+                    "subscription_credit_left_rate": 0.1,
+                    "topup_credit_left_rate": 0.9,
+                    "subscription_credit_reset_time": "1786564800",
+                },
+            },
+            "Step Plan",
+        )
+        self.assertEqual(len(out["meters"]), 1)
+        self.assertEqual(out["meters"][0]["label"], "Credits")
+        # (30 + 210) / (100 + 300) = 240 / 400 = 0.60 -> 60%
+        self.assertEqual(out["meters"][0]["remainingPercent"], 60)
+        self.assertIn("resetAt", out["meters"][0])
+
+    def test_credit_no_buckets_subscription_rate_gives_subscription_credits(self) -> None:
+        out = StepFunProvider()._normalize(
+            {
+                "plan_family": 2,
+                "plan_credit_rate_limit": {
+                    "subscription_credit_left_rate": 0.42,
+                    "subscription_credit_reset_time": "1786564800",
+                },
+            },
+            "Step Plan",
+        )
+        self.assertEqual(len(out["meters"]), 1)
+        self.assertEqual(out["meters"][0]["label"], "Subscription Credits")
+        self.assertEqual(out["meters"][0]["remainingPercent"], 42)
+        self.assertIn("resetAt", out["meters"][0])
+        self.assertNotEqual(out["meters"][0]["label"], "Credits")
+
+    def test_credit_no_buckets_only_topup_gives_topup_credits(self) -> None:
+        out = StepFunProvider()._normalize(
+            {
+                "plan_family": 2,
+                "plan_credit_rate_limit": {
+                    "topup_credit_left_rate": 0.75,
+                },
+            },
+            "Step Plan",
+        )
+        self.assertEqual(len(out["meters"]), 1)
+        self.assertEqual(out["meters"][0]["label"], "Top-up Credits")
+        self.assertEqual(out["meters"][0]["remainingPercent"], 75)
+        self.assertNotIn("resetAt", out["meters"][0])
+
+    def test_credit_invalid_buckets_falls_back_to_subscription_credits(self) -> None:
+        out = StepFunProvider()._normalize(
+            {
+                "plan_family": 2,
+                "plan_credit_rate_limit": {
+                    "credit_buckets": [
+                        {"credit_total": 0, "credit_residual": 10},
+                    ],
+                    "subscription_credit_left_rate": 0.55,
+                    "subscription_credit_reset_time": "1786564800",
+                },
+            },
+            "Step Plan",
+        )
+        self.assertEqual(len(out["meters"]), 1)
+        self.assertEqual(out["meters"][0]["label"], "Subscription Credits")
+        self.assertEqual(out["meters"][0]["remainingPercent"], 55)
+
+    def test_credit_separate_rates_are_never_summed(self) -> None:
+        out = StepFunProvider()._normalize(
+            {
+                "plan_family": 2,
+                "plan_credit_rate_limit": {
+                    "subscription_credit_left_rate": 0.4,
+                    "topup_credit_left_rate": 0.5,
+                    "subscription_credit_reset_time": "1786564800",
+                },
+            },
+            "Step Plan",
+        )
+        self.assertEqual(len(out["meters"]), 1)
+        self.assertEqual(out["meters"][0]["label"], "Subscription Credits")
+        self.assertEqual(out["meters"][0]["remainingPercent"], 40)
+        self.assertNotEqual(out["meters"][0]["remainingPercent"], 90)
+
 
 class ClaudeContractTests(unittest.TestCase):
     def test_utilization_is_percent_used_and_extra_windows_stay_meters(self) -> None:
@@ -309,12 +403,102 @@ class CacheContractTests(unittest.TestCase):
         )
         payload["access_token"] = "sk-ant-test-secret"
         with tempfile.TemporaryDirectory() as tmp:
+            old = os.environ.get("XDG_CACHE_HOME")
             os.environ["XDG_CACHE_HOME"] = tmp
             try:
                 with self.assertRaises(ValueError):
                     write_success("codex", payload)
             finally:
-                os.environ.pop("XDG_CACHE_HOME", None)
+                if old is None:
+                    os.environ.pop("XDG_CACHE_HOME", None)
+                else:
+                    os.environ["XDG_CACHE_HOME"] = old
+
+    def test_cache_refuses_nested_and_mixed_case_secret_keys(self) -> None:
+        base = project_ok(
+            provider="stepfun",
+            display_name="StepFun",
+            plan="Step Plan",
+            meters=[{"label": "Credits", "remainingPercent": 80}],
+        )
+        cases = [
+            {"meters": [{"label": "Credits", "remainingPercent": 80, "Access_Token": "x"}]},
+            {"breakdown": [{"label": "Credits", "remainingPercent": 80, "cookie": "x"}]},
+            {"Authorization": "x"},
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            old = os.environ.get("XDG_CACHE_HOME")
+            os.environ["XDG_CACHE_HOME"] = tmp
+            try:
+                for extra in cases:
+                    bad = dict(base)
+                    bad.update(extra)
+                    with self.assertRaises(ValueError):
+                        write_success("stepfun", bad)
+
+                path = write_success("stepfun", base)
+                envelope = json.loads(path.read_text())
+                self.assertEqual(set(envelope.keys()), {"fetchedAt", "provider", "data"})
+                self.assertEqual(
+                    set(envelope["data"].keys()),
+                    {
+                        "provider",
+                        "displayName",
+                        "plan",
+                        "remainingPercent",
+                        "resetAt",
+                        "status",
+                        "breakdown",
+                        "meters",
+                    },
+                )
+            finally:
+                if old is None:
+                    os.environ.pop("XDG_CACHE_HOME", None)
+                else:
+                    os.environ["XDG_CACHE_HOME"] = old
+
+
+class ProviderEdgeCaseTests(unittest.TestCase):
+    def test_numeric_parsers_reject_bool_inf_and_nan(self) -> None:
+        bad_values = [True, False, float("inf"), float("-inf"), float("nan")]
+        for bad in bad_values:
+            self.assertIsNone(claude_utilization({"utilization": bad}))
+            self.assertIsNone(claude_remaining_from_used(bad))
+            self.assertFalse(claude_expired(bad))
+            self.assertIsNone(codex_meter_from_window({"used_percent": bad}))
+            self.assertIsNone(CursorProvider._remaining_from_used_percent(bad))
+
+    def test_codex_unreadable_auth_file_is_auth_unavailable(self) -> None:
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            auth_file = Path(tmp) / "auth.json"
+            auth_file.write_text('{"tokens": {"access_token": "x"}}')
+            provider = CodexProvider(auth_path=auth_file)
+            with mock.patch.object(Path, "read_text", side_effect=PermissionError("denied")):
+                with self.assertRaises(ProviderError) as ctx:
+                    provider._load_auth()
+            self.assertEqual(ctx.exception.code, "auth_unavailable")
+
+    def test_codex_refresh_non_json_is_upstream_error(self) -> None:
+        from unittest import mock
+
+        class NonJsonResp:
+            def read(self) -> bytes:
+                return b"<html>bad gateway</html>"
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        provider = CodexProvider(auth_path=Path("/nonexistent/auth.json"))
+        with mock.patch("urllib.request.urlopen", return_value=NonJsonResp()):
+            with self.assertRaises(ProviderError) as ctx:
+                provider._refresh_tokens({"tokens": {"refresh_token": "ref"}})
+        self.assertEqual(ctx.exception.code, "upstream_error")
 
 
 if __name__ == "__main__":

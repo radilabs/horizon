@@ -3,7 +3,6 @@ import QtQuick.Layouts
 import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.components as PlasmaComponents
-import org.kde.plasma.plasmoid
 import org.kde.plasma.plasma5support as P5Support
 import QtCore
 
@@ -22,17 +21,20 @@ ColumnLayout {
         return s
     }
 
-    function homePath() {
-        return filesystemPath(StandardPaths.writableLocation(StandardPaths.HomeLocation))
+    function shellQuote(path) {
+        return "'" + String(path).replace(/'/g, "'\\''") + "'"
+    }
+
+    function dataPath() {
+        return filesystemPath(StandardPaths.writableLocation(StandardPaths.GenericDataLocation))
     }
 
     function helperCmd(action) {
-        // Installed copy preferred; fall back to repo layout during dev.
-        var lib = homePath() + "/.local/share/horizon/collector/stepfun_auth_helper.py"
-        return "python3 \"" + lib + "\" " + action
+        var lib = dataPath() + "/horizon/collector/stepfun_auth_helper.py"
+        return "python3 " + shellQuote(lib) + " " + action
     }
 
-    function applyHelperResult(stdout) {
+    function applyHelperResult(stdout, exitCode) {
         var line = String(stdout || "").trim().split("\n").pop()
         if (line === "working") {
             stepfunStatus = "Configured · working"
@@ -40,6 +42,9 @@ ColumnLayout {
         } else if (line === "auth_failed") {
             stepfunStatus = "Configured · needs authentication"
             stepfunDetail = "A token is stored, but StepFun rejected it after a single automatic refresh attempt. Copy a fresh Oasis-Token from platform.stepfun.ai and save again."
+        } else if (line === "unavailable") {
+            stepfunStatus = "Configured · unavailable"
+            stepfunDetail = "StepFun could not be reached or verified right now. Your stored token was kept; try Check status again when online."
         } else if (line === "missing") {
             stepfunStatus = "Not configured"
             stepfunDetail = ""
@@ -52,8 +57,9 @@ ColumnLayout {
         } else if (line === "store_error") {
             stepfunStatus = "Store error"
             stepfunDetail = "Could not access KWallet."
-        } else if (line.length) {
-            stepfunDetail = line
+        } else {
+            stepfunStatus = "Helper error"
+            stepfunDetail = "Helper failed to run — reinstall with scripts/install.sh."
         }
     }
 
@@ -87,9 +93,10 @@ ColumnLayout {
         connectedSources: []
         onNewData: function (sourceName, data) {
             var stdout = data["stdout"] ? String(data["stdout"]).trim() : ""
+            var exitCode = (data && data["exit code"] !== undefined) ? Number(data["exit code"]) : 0
             disconnectSource(sourceName)
-            stepfunBusy = false
-            page.applyHelperResult(stdout)
+            page.stepfunBusy = false
+            page.applyHelperResult(stdout, exitCode)
         }
         function exec(cmd) {
             connectSource(cmd)

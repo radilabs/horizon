@@ -147,7 +147,6 @@ class RefreshFlowTests(unittest.TestCase):
                     ("QueryStepPlanRateLimit", 401, {"message": "unauthorized"}),
                     ("RefreshToken", 200, REFRESH_OK),
                     ("QueryStepPlanRateLimit", 200, USAGE_OK),
-                    ("QueryStepPlanRateLimit", 200, USAGE_OK),
                     ("GetStepPlanStatus", 200, PLAN_OK),
                 ]
             )
@@ -158,6 +157,8 @@ class RefreshFlowTests(unittest.TestCase):
                     order.append("refresh")
                 elif "QueryStepPlanRateLimit" in url:
                     order.append("usage")
+                elif "GetStepPlanStatus" in url:
+                    order.append("plan")
                 return http(req, timeout=timeout)
 
             with mock.patch("urllib.request.urlopen", wrapped):
@@ -166,11 +167,34 @@ class RefreshFlowTests(unittest.TestCase):
         self.assertEqual(out["plan"], "Plus")
         self.assertIsNotNone(self.last_set)
         self.assertNotEqual(self.last_set, self.token)
-        # validate usage happens before set
-        self.assertEqual(order[:3], ["usage", "refresh", "usage"])
-        self.assertIn("set", order)
-        self.assertLess(order.index("refresh"), order.index("set"))
-        self.assertLess(order.index("usage", 1), order.index("set"))
+        # Exactly one QueryStepPlanRateLimit after refresh, before secret_set, then plan
+        self.assertEqual(order, ["usage", "refresh", "usage", "set", "plan"])
+        self.assertEqual(http.script, [])
+
+    def test_rotated_token_reuses_validating_usage(self) -> None:
+        rotated = pair(access_claims={"exp": 9999999999})
+        reads = [self.token, rotated]
+
+        def rotating_get(provider: str, name: str) -> str | None:
+            del provider, name
+            return reads.pop(0) if reads else rotated
+
+        http = FakeHTTP(
+            [
+                ("QueryStepPlanRateLimit", 401, {"message": "unauthorized"}),
+                ("QueryStepPlanRateLimit", 200, USAGE_OK),
+                ("GetStepPlanStatus", 200, PLAN_OK),
+            ]
+        )
+        with mock.patch("providers.stepfun.secret_get", side_effect=rotating_get):
+            with mock.patch("urllib.request.urlopen", http):
+                out = StepFunProvider().fetch_usage()
+        self.assertEqual(out["status"], "ok")
+        self.assertEqual(out["plan"], "Plus")
+        self.assertIsNone(self.last_set)
+        self.assertEqual(sum(1 for c in http.calls if "QueryStepPlanRateLimit" in c), 2)
+        self.assertEqual(sum(1 for c in http.calls if "RefreshToken" in c), 0)
+        self.assertEqual(http.script, [])
 
     def test_refresh_http_failure_keeps_store(self) -> None:
         http = FakeHTTP(
@@ -222,7 +246,6 @@ class RefreshFlowTests(unittest.TestCase):
             [
                 ("QueryStepPlanRateLimit", 401, {"message": "unauthorized"}),
                 ("RefreshToken", 200, REFRESH_OK),
-                ("QueryStepPlanRateLimit", 200, USAGE_OK),
                 ("QueryStepPlanRateLimit", 401, {"message": "unauthorized"}),
             ]
         )
@@ -230,7 +253,9 @@ class RefreshFlowTests(unittest.TestCase):
             with self.assertRaises(ProviderError) as ctx:
                 StepFunProvider().fetch_usage()
         self.assertEqual(ctx.exception.code, "auth_unavailable")
+        self.assertIsNone(self.last_set)
         self.assertEqual(sum(1 for c in http.calls if "RefreshToken" in c), 1)
+        self.assertEqual(http.script, [])
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import tempfile
 import urllib.error
@@ -79,6 +80,8 @@ class CodexProvider:
     def _load_auth(self) -> dict[str, Any]:
         try:
             data = json.loads(self.auth_path.read_text())
+        except OSError as exc:
+            raise ProviderError("auth_unavailable", f"Cannot read Codex auth file: {exc}") from exc
         except json.JSONDecodeError as exc:
             raise ProviderError("auth_unavailable", f"Codex auth file is not valid JSON: {exc}") from exc
         if not isinstance(data, dict):
@@ -129,6 +132,8 @@ class CodexProvider:
             raise ProviderError("upstream_error", f"Token refresh upstream error (HTTP {exc.code})") from exc
         except urllib.error.URLError as exc:
             raise ProviderError("upstream_error", f"Token refresh network error: {exc.reason}") from exc
+        except json.JSONDecodeError as exc:
+            raise ProviderError("upstream_error", "Token refresh response was not valid JSON") from exc
 
         if not isinstance(payload, dict) or not payload.get("access_token"):
             raise ProviderError("upstream_error", "Token refresh returned unexpected payload")
@@ -212,12 +217,15 @@ class CodexProvider:
 
 def _meter_from_window(window: dict[str, Any]) -> dict[str, Any] | None:
     used = window.get("used_percent")
-    if used is None:
+    if used is None or isinstance(used, bool):
         return None
     try:
-        remaining = max(0, min(100, int(round(100 - float(used)))))
+        used_val = float(used)
     except (TypeError, ValueError):
         return None
+    if not math.isfinite(used_val):
+        return None
+    remaining = max(0, min(100, int(round(100 - used_val))))
     meter: dict[str, Any] = {
         "label": _window_label(window),
         "remainingPercent": remaining,

@@ -144,7 +144,7 @@ Other endpoints observed but not used as primary:
 |------------------|---------------|
 | `provider` | `"cursor"` |
 | `displayName` | `"Cursor"` |
-| `plan` | `GetPlanInfo.planName` or membership type |
+| `plan` | `GetPlanInfo.planInfo.planName` or membership type |
 | `meters` / `breakdown` | Cursor Models when `autoPercentUsed` is present, then Other Models when `apiPercentUsed` is present. Either pool may be absent. |
 | `remainingPercent` | Compatibility copy of the first meter (Cursor Models when present, otherwise Other Models) |
 | `secondaryRemainingPercent` | Compatibility copy of Other Models, only when both pools exist |

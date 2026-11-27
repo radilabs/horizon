@@ -40,7 +40,8 @@ exec python3 "${LIB_DIR}/ai-usage" "\$@"
 EOF
 chmod 0755 "${BIN_DIR}/ai-usage"
 
-if kpackagetool6 --type Plasma/Applet --list 2>/dev/null | grep -q 'com.radilabs.horizon'; then
+installed_applets="$(kpackagetool6 --type Plasma/Applet --list 2>/dev/null || true)"
+if grep -Fq 'com.radilabs.horizon' <<< "${installed_applets}"; then
   kpackagetool6 --type Plasma/Applet --upgrade "${PLASMOID_SRC}"
 else
   kpackagetool6 --type Plasma/Applet --install "${PLASMOID_SRC}"

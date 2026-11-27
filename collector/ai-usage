@@ -75,8 +75,14 @@ def cmd_auth(args: argparse.Namespace) -> int:
                 StepFunProvider().fetch_usage()
                 print("working")
                 return 0
+            except ProviderError as exc:
+                if exc.code == "auth_unavailable":
+                    print("auth_failed")
+                else:
+                    print("unavailable")
+                return 1
             except Exception:  # noqa: BLE001
-                print("auth_failed")
+                print("unavailable")
                 return 1
         if action == "status":
             if not secret_configured("stepfun", "oasis-token"):
@@ -85,8 +91,13 @@ def cmd_auth(args: argparse.Namespace) -> int:
             try:
                 StepFunProvider().fetch_usage()
                 print("working")
+            except ProviderError as exc:
+                if exc.code == "auth_unavailable":
+                    print("auth_failed")
+                else:
+                    print("unavailable")
             except Exception:  # noqa: BLE001
-                print("auth_failed")
+                print("unavailable")
             return 0
         if action == "clear":
             secret_delete("stepfun", "oasis-token")

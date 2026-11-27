@@ -12,7 +12,7 @@ Browser cookies (e.g. Zen) are **not** the primary credential source and must no
 
 ```bash
 ai-usage auth stepfun set      # secure prompt (no --token); verifies live
-ai-usage auth stepfun status   # working | auth_failed | missing
+ai-usage auth stepfun status   # working | auth_failed | unavailable | missing
 ai-usage auth stepfun clear
 ```
 
@@ -56,7 +56,9 @@ Referer: https://platform.stepfun.ai/
 
 Observed success body shape (values omitted): `accessToken.raw` + `refreshToken.raw` (optional `accessToken.duration` / `mode`). Horizon stores `access...refresh` again.
 
-Rotation: Horizon **validates** the new pair with `QueryStepPlanRateLimit` **before** replacing KWallet `stepfun/oasis-token`. Failed refresh or failed validation leaves the previous secret in place and surfaces `auth_unavailable` (manual **Save token** / `ai-usage auth stepfun set`).
+Rotation: Horizon **validates** the new pair with `QueryStepPlanRateLimit` **before** replacing KWallet `stepfun/oasis-token`, and reuses that validated usage response without issuing a second `QueryStepPlanRateLimit` call. Failed refresh or failed validation leaves the previous secret in place and surfaces `auth_unavailable` (manual **Save token** / `ai-usage auth stepfun set`).
+
+Concurrency note: refresh recovery is serialized by an in-process `threading.Lock` (`_REFRESH_LOCK`) only; separate `ai-usage` processes are not serialized against each other.
 
 This is unofficial. It is **not** username/password login and **not** browser-cookie import. CodexBar’s older `platform.stepfun.com` + app id `10300` pairing is not the path used here.
 
@@ -125,8 +127,10 @@ No live window resets, plus `plan_credit_rate_limit` credit material.
 
 Meters:
 
-* Prefer weighted **Credits** from `credit_buckets` residual/total when all buckets are valid
-* Else `subscription_credit_left_rate` (or `topup_credit_left_rate` if no subscription rate)
+* **Credits** — weighted `sum(credit_residual) / sum(credit_total)` from `credit_buckets` when all buckets are present and valid (with `subscription_credit_reset_time` when present)
+* Otherwise, when buckets are absent or invalid:
+  * **Subscription Credits** from `subscription_credit_left_rate` (with `subscription_credit_reset_time` when present)
+  * **Top-up Credits** from `topup_credit_left_rate` when there is no subscription rate
 * Do **not** add independent credit rates together
 * Do **not** show fake 5-Hour/Weekly 0% bars
 

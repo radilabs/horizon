@@ -2,7 +2,7 @@
 """StepFun auth helper for Plasma settings (no token in process argv).
 
 Commands (stdout is a single status token; never prints secrets):
-  status    -> missing | working | auth_failed | store_error
+  status    -> missing | working | auth_failed | unavailable | store_error
   clipboard -> read Oasis token from clipboard, store in KWallet, verify
   stdin     -> read Oasis token from stdin, store in KWallet, verify
   clear     -> delete stored token
@@ -88,28 +88,26 @@ def clear_clipboard() -> None:
         pass
 
 
-def verify_token(token: str) -> str:
-    """Return working | auth_failed without leaking token material.
+def verify_token() -> str:
+    """Return working | auth_failed | unavailable without leaking token material.
 
     Uses fetch_usage so a stored but expired Oasis pair can take the same
     single bounded refresh path as the collector (KWallet updated only after
-    a successful usage probe).
+    a successful usage probe). Callers must persist the token first because
+    fetch_usage reloads from KWallet.
     """
     from providers.stepfun import StepFunProvider  # noqa: WPS433
     from providers import ProviderError  # noqa: WPS433
 
-    # Token argument is the value just stored or read; fetch_usage reloads
-    # from KWallet so callers must persist first.
-    del token
     try:
         StepFunProvider().fetch_usage()
         return "working"
     except ProviderError as exc:
         if exc.code == "auth_unavailable":
             return "auth_failed"
-        return "auth_failed"
+        return "unavailable"
     except Exception:  # noqa: BLE001
-        return "auth_failed"
+        return "unavailable"
 
 
 def store_and_verify(token: str) -> tuple[str, int]:
@@ -126,7 +124,7 @@ def store_and_verify(token: str) -> tuple[str, int]:
         eprint(str(exc))
         print("store_error")
         return "store_error", 1
-    result = verify_token(token)
+    result = verify_token()
     print(result)
     return result, (0 if result == "working" else 1)
 
@@ -141,13 +139,13 @@ def cmd_status() -> int:
     if not token:
         print("missing")
         return 0
-    print(verify_token(token))
+    print(verify_token())
     return 0
 
 
 def cmd_clipboard() -> int:
     result, code = store_and_verify(read_clipboard())
-    if result in {"working", "auth_failed"}:
+    if result in {"working", "auth_failed", "unavailable"}:
         clear_clipboard()
     return code
 

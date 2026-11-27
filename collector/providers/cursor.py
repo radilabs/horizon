@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import sqlite3
 import urllib.error
@@ -132,12 +133,15 @@ class CursorProvider:
 
     @staticmethod
     def _remaining_from_used_percent(used: Any) -> int | None:
-        if used is None:
+        if used is None or isinstance(used, bool):
             return None
         try:
-            return CursorProvider._clamp_pct(100.0 - float(used))
+            used_val = float(used)
         except (TypeError, ValueError):
             return None
+        if not math.isfinite(used_val):
+            return None
+        return CursorProvider._clamp_pct(100.0 - used_val)
 
     def _normalize(self, usage: dict[str, Any], plan_label: str) -> dict[str, Any]:
         plan_usage = usage.get("planUsage") or {}

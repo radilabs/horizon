@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
@@ -73,15 +74,11 @@ PlasmoidItem {
     }
 
     function collectorCommand(providerId) {
-        return collectorBin() + " status " + providerId + " --json"
+        return MeterIntake.collectorCommandForBin(collectorBin(), providerId)
     }
 
     function providerIdFromCommand(cmd) {
-        var parts = String(cmd).trim().split(/\s+/)
-        var statusIdx = parts.indexOf("status")
-        if (statusIdx >= 0 && statusIdx + 1 < parts.length)
-            return parts[statusIdx + 1]
-        return ""
+        return MeterIntake.providerIdFromCommand(cmd)
     }
 
     function enabledProviderIds() {
@@ -130,6 +127,7 @@ PlasmoidItem {
                 statusCode: row.statusCode,
                 statusLabel: row.statusLabel,
                 errorText: row.errorText,
+                fetchedAt: row.fetchedAt || "",
                 fetchedAtText: row.fetchedAtText,
                 stale: row.stale,
                 hasQuota: row.hasQuota,
@@ -150,6 +148,7 @@ PlasmoidItem {
                     statusCode: "idle",
                     statusLabel: "",
                     errorText: "",
+                    fetchedAt: "",
                     fetchedAtText: "",
                     stale: false,
                     hasQuota: false,
@@ -162,44 +161,11 @@ PlasmoidItem {
     }
 
     function formatRelative(iso) {
-        if (!iso)
-            return ""
-        var ms = Date.parse(iso)
-        if (isNaN(ms))
-            return iso
-        var diffSec = Math.floor((ms - Date.now()) / 1000)
-        var sign = ""
-        if (diffSec < 0) {
-            sign = "-"
-            diffSec = -diffSec
-        }
-        var days = Math.floor(diffSec / 86400)
-        var hours = Math.floor((diffSec % 86400) / 3600)
-        var mins = Math.floor((diffSec % 3600) / 60)
-        if (days > 0)
-            return sign + days + "d " + hours + "h"
-        if (hours > 0)
-            return sign + hours + "h " + mins + "m"
-        return sign + mins + "m"
+        return MeterIntake.formatRelative(iso)
     }
 
     function formatFetchedAt(iso) {
-        if (!iso)
-            return ""
-        var ms = Date.parse(iso)
-        if (isNaN(ms))
-            return iso
-        var agoSec = Math.max(0, Math.floor((Date.now() - ms) / 1000))
-        var days = Math.floor(agoSec / 86400)
-        var hours = Math.floor((agoSec % 86400) / 3600)
-        var mins = Math.floor((agoSec % 3600) / 60)
-        if (days > 0)
-            return days + "d " + hours + "h ago"
-        if (hours > 0)
-            return hours + "h " + mins + "m ago"
-        if (mins > 0)
-            return mins + "m ago"
-        return "just now"
+        return MeterIntake.formatFetchedAt(iso)
     }
 
     function friendlyStatusLabel(statusCode, stale, hasQuota, fetchedAtText, inFlight) {
@@ -226,13 +192,63 @@ PlasmoidItem {
         var rows = MeterIntake.intakeMeters(obj)
         var lines = []
         for (var i = 0; i < rows.length; i++) {
+            var resetAt = rows[i].resetAt || ""
             lines.push({
                 label: rows[i].label,
                 remainingPercent: rows[i].remainingPercent,
-                resetText: formatRelative(rows[i].resetAt || "")
+                resetAt: resetAt,
+                resetText: formatRelative(resetAt)
             })
         }
         return JSON.stringify(lines)
+    }
+
+    function recomputeRelativeTimes() {
+        var changed = false
+        for (var i = 0; i < providersModel.count; i++) {
+            var row = providersModel.get(i)
+            var nextFetchedText = row.fetchedAt ? formatFetchedAt(row.fetchedAt) : row.fetchedAtText
+            var nextStatusLabel = friendlyStatusLabel(
+                row.statusCode,
+                row.stale,
+                row.hasQuota,
+                nextFetchedText,
+                row.inFlight
+            )
+            var nextMetersJson = row.metersJson
+            if (row.metersJson && row.metersJson !== "[]") {
+                try {
+                    var parsed = JSON.parse(row.metersJson)
+                    var meterChanged = false
+                    for (var j = 0; j < parsed.length; j++) {
+                        if (parsed[j].resetAt) {
+                            var nextReset = formatRelative(parsed[j].resetAt)
+                            if (nextReset !== parsed[j].resetText) {
+                                parsed[j].resetText = nextReset
+                                meterChanged = true
+                            }
+                        }
+                    }
+                    if (meterChanged)
+                        nextMetersJson = JSON.stringify(parsed)
+                } catch (e) {
+                }
+            }
+            if (nextFetchedText !== row.fetchedAtText) {
+                providersModel.setProperty(i, "fetchedAtText", nextFetchedText)
+                changed = true
+            }
+            if (nextStatusLabel !== row.statusLabel) {
+                providersModel.setProperty(i, "statusLabel", nextStatusLabel)
+                changed = true
+            }
+            if (nextMetersJson !== row.metersJson) {
+                providersModel.setProperty(i, "metersJson", nextMetersJson)
+                changed = true
+            }
+        }
+        if (changed)
+            updateCompactSummary()
     }
 
     function applyPayload(providerId, obj) {
@@ -249,6 +265,7 @@ PlasmoidItem {
                 statusCode: "collector_error",
                 statusLabel: "Collector error",
                 errorText: "",
+                fetchedAt: "",
                 fetchedAtText: "",
                 stale: false,
                 hasQuota: false,
@@ -264,12 +281,14 @@ PlasmoidItem {
         var providerName = obj.displayName || obj.provider || providerId
         var planName = ""
         var metersJson = "[]"
+        var fetchedAt = ""
         var fetchedAtText = ""
         var hasQuota = false
 
         if (statusCode === "ok" || statusCode === "stale") {
             planName = obj.plan || ""
-            fetchedAtText = formatFetchedAt(obj.fetchedAt)
+            fetchedAt = (typeof obj.fetchedAt === "string") ? obj.fetchedAt : ""
+            fetchedAtText = formatFetchedAt(fetchedAt)
             metersJson = popupMetersJson(obj)
             try {
                 hasQuota = JSON.parse(metersJson).length > 0
@@ -289,6 +308,7 @@ PlasmoidItem {
             statusCode: statusCode,
             statusLabel: statusLabel,
             errorText: errorText,
+            fetchedAt: fetchedAt,
             fetchedAtText: fetchedAtText,
             stale: stale,
             hasQuota: hasQuota,
@@ -374,28 +394,38 @@ PlasmoidItem {
     }
 
     onExpandedChanged: function (expanded) {
-        if (expanded)
+        if (expanded) {
+            recomputeRelativeTimes()
             refreshUsage()
+        }
     }
 
     Connections {
-        target: plasmoid.configuration
+        target: root.plasmoid.configuration
         function onEnableCodexChanged() { root.onConfigChanged() }
         function onEnableCursorChanged() { root.onConfigChanged() }
         function onEnableStepfunChanged() { root.onConfigChanged() }
         function onEnableClaudeChanged() { root.onConfigChanged() }
         function onRefreshIntervalMinutesChanged() {
-            refreshTimer.interval = Math.max(1, plasmoid.configuration.refreshIntervalMinutes) * 60 * 1000
+            refreshTimer.interval = Math.max(1, root.plasmoid.configuration.refreshIntervalMinutes) * 60 * 1000
             refreshTimer.restart()
         }
     }
 
     Timer {
         id: refreshTimer
-        interval: Math.max(1, plasmoid.configuration.refreshIntervalMinutes) * 60 * 1000
+        interval: Math.max(1, root.plasmoid.configuration.refreshIntervalMinutes) * 60 * 1000
         running: true
         repeat: true
         onTriggered: root.refreshUsage()
+    }
+
+    Timer {
+        id: relativeTimeTimer
+        interval: 60 * 1000
+        running: root.expanded
+        repeat: true
+        onTriggered: root.recomputeRelativeTimes()
     }
 
     Component.onCompleted: {
@@ -532,9 +562,18 @@ PlasmoidItem {
                     Accessible.name: root.anyInFlight ? "Refreshing" : "Refresh"
                     Accessible.description: "Refresh usage for every enabled provider"
                     onClicked: root.refreshUsage()
-                    Keys.onReturnPressed: if (enabled) root.refreshUsage()
-                    Keys.onEnterPressed: if (enabled) root.refreshUsage()
-                    Keys.onSpacePressed: if (enabled) root.refreshUsage()
+                    Keys.onReturnPressed: function (event) {
+                        if (enabled) {
+                            event.accepted = true
+                            root.refreshUsage()
+                        }
+                    }
+                    Keys.onEnterPressed: function (event) {
+                        if (enabled) {
+                            event.accepted = true
+                            root.refreshUsage()
+                        }
+                    }
 
                     QQC2.ToolTip.visible: hovered || activeFocus
                     QQC2.ToolTip.text: root.anyInFlight ? "Refreshing…" : "Refresh"
@@ -574,15 +613,25 @@ PlasmoidItem {
 
                         delegate: ColumnLayout {
                             id: providerBlock
+                            required property int index
+                            required property string providerName
+                            required property string planName
+                            required property string metersJson
+                            required property string statusCode
+                            required property string statusLabel
+                            required property string errorText
+                            required property bool stale
+                            required property bool hasQuota
+
                             width: providerColumn.width
                             spacing: Kirigami.Units.smallSpacing
 
-                            readonly property bool showMeters: (model.statusCode === "ok" || model.statusCode === "stale") && model.hasQuota
+                            readonly property bool showMeters: (providerBlock.statusCode === "ok" || providerBlock.statusCode === "stale") && providerBlock.hasQuota
                             readonly property var usageLines: {
                                 if (!providerBlock.showMeters)
                                     return []
                                 try {
-                                    return JSON.parse(model.metersJson || "[]")
+                                    return JSON.parse(providerBlock.metersJson || "[]")
                                 } catch (e) {
                                     return []
                                 }
@@ -594,14 +643,14 @@ PlasmoidItem {
 
                                 PlasmaComponents.Label {
                                     Layout.fillWidth: true
-                                    text: model.providerName
+                                    text: providerBlock.providerName
                                     font.bold: true
                                     elide: Text.ElideRight
                                 }
 
                                 PlasmaComponents.Label {
-                                    visible: model.planName.length > 0
-                                    text: model.planName
+                                    visible: providerBlock.planName.length > 0
+                                    text: providerBlock.planName
                                     color: Kirigami.Theme.disabledTextColor
                                 }
                             }
@@ -609,9 +658,12 @@ PlasmoidItem {
                             Repeater {
                                 model: providerBlock.usageLines
                                 delegate: ColumnLayout {
+                                    id: meterItem
+                                    required property var modelData
+
                                     Layout.fillWidth: true
                                     spacing: Kirigami.Units.smallSpacing / 2
-                                    visible: modelData.remainingPercent >= 0
+                                    visible: meterItem.modelData.remainingPercent >= 0
 
                                     RowLayout {
                                         Layout.fillWidth: true
@@ -619,16 +671,16 @@ PlasmoidItem {
 
                                         PlasmaComponents.Label {
                                             Layout.fillWidth: true
-                                            visible: String(modelData.label || "").length > 0
-                                            text: modelData.label
+                                            visible: String(meterItem.modelData.label || "").length > 0
+                                            text: meterItem.modelData.label
                                             elide: Text.ElideRight
                                             color: Kirigami.Theme.textColor
                                         }
 
                                         PlasmaComponents.Label {
-                                            text: modelData.remainingPercent + "% remaining"
+                                            text: meterItem.modelData.remainingPercent + "% remaining"
                                             font.bold: true
-                                            color: modelData.remainingPercent === 0
+                                            color: meterItem.modelData.remainingPercent === 0
                                                 ? Kirigami.Theme.negativeTextColor
                                                 : Kirigami.Theme.textColor
                                         }
@@ -638,15 +690,15 @@ PlasmoidItem {
                                         Layout.fillWidth: true
                                         from: 0
                                         to: 100
-                                        value: Math.max(0, Math.min(100, modelData.remainingPercent))
+                                        value: Math.max(0, Math.min(100, meterItem.modelData.remainingPercent))
                                         indeterminate: false
                                     }
 
                                     PlasmaComponents.Label {
                                         Layout.fillWidth: true
-                                        visible: String(modelData.resetText || "").length > 0
+                                        visible: String(meterItem.modelData.resetText || "").length > 0
                                         horizontalAlignment: Text.AlignRight
-                                        text: "Resets in " + modelData.resetText
+                                        text: "Resets in " + meterItem.modelData.resetText
                                         color: Kirigami.Theme.disabledTextColor
                                     }
                                 }
@@ -654,27 +706,27 @@ PlasmoidItem {
 
                             PlasmaComponents.Label {
                                 Layout.fillWidth: true
-                                visible: model.statusLabel.length > 0
+                                visible: providerBlock.statusLabel.length > 0
                                 wrapMode: Text.WordWrap
-                                text: model.statusLabel
-                                color: (model.statusCode === "idle" || model.statusCode === "")
+                                text: providerBlock.statusLabel
+                                color: (providerBlock.statusCode === "idle" || providerBlock.statusCode === "")
                                      ? Kirigami.Theme.disabledTextColor
-                                     : (model.stale ? Kirigami.Theme.neutralTextColor
-                                        : (model.statusCode === "ok" ? Kirigami.Theme.textColor
+                                     : (providerBlock.stale ? Kirigami.Theme.neutralTextColor
+                                        : (providerBlock.statusCode === "ok" ? Kirigami.Theme.textColor
                                                                      : Kirigami.Theme.negativeTextColor))
                             }
 
                             PlasmaComponents.Label {
                                 Layout.fillWidth: true
-                                visible: model.errorText.length > 0
+                                visible: providerBlock.errorText.length > 0
                                 wrapMode: Text.WordWrap
-                                text: model.errorText
+                                text: providerBlock.errorText
                                 color: Kirigami.Theme.negativeTextColor
                             }
 
                             Kirigami.Separator {
                                 Layout.fillWidth: true
-                                visible: index < providersModel.count - 1
+                                visible: providerBlock.index < providersModel.count - 1
                             }
                         }
                     }

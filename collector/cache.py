@@ -23,15 +23,28 @@ def cache_path(provider_id: str) -> Path:
     return cache_dir() / f"usage-{safe}.json"
 
 
+_FORBIDDEN_KEYS = frozenset(
+    {"access_token", "refresh_token", "id_token", "authorization", "cookie"}
+)
+
+
+def _reject_forbidden_keys(obj: Any) -> None:
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            if str(key).lower() in _FORBIDDEN_KEYS:
+                raise ValueError(f"refusing to cache forbidden field: {key}")
+            _reject_forbidden_keys(value)
+    elif isinstance(obj, list):
+        for item in obj:
+            _reject_forbidden_keys(item)
+
+
 def write_success(provider_id: str, data: dict[str, Any]) -> Path:
     """Persist normalized ok payload only."""
     if data.get("status") != "ok":
         raise ValueError("refusing to cache non-ok payload")
-    # Strip any accidental secret-looking keys
-    forbidden = ("access_token", "refresh_token", "id_token", "authorization", "cookie")
-    for key in forbidden:
-        if key in data:
-            raise ValueError(f"refusing to cache forbidden field: {key}")
+    # Reject any accidental secret-looking keys recursively and case-insensitively.
+    _reject_forbidden_keys(data)
 
     path = cache_path(provider_id)
     path.parent.mkdir(parents=True, exist_ok=True)

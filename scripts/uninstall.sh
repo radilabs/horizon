@@ -20,7 +20,8 @@ for arg in "$@"; do
 done
 
 if command -v kpackagetool6 >/dev/null 2>&1; then
-  if kpackagetool6 --type Plasma/Applet --list 2>/dev/null | grep -q 'com.radilabs.horizon'; then
+  installed_applets="$(kpackagetool6 --type Plasma/Applet --list 2>/dev/null || true)"
+  if grep -Fq 'com.radilabs.horizon' <<< "${installed_applets}"; then
     kpackagetool6 --type Plasma/Applet --remove com.radilabs.horizon || true
   fi
 fi

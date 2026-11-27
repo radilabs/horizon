@@ -814,3 +814,94 @@ Define and validate the smallest provider-neutral usage information contract tha
 * Independent Watcher PASS, followed by explicit owner acceptance.
 * Only after acceptance, write `docs/handoffs/phase-7.md` as the accepted-state snapshot and produce the checkpoint.
 * STOP. Do not start Phase 8.
+
+---
+
+# Stage 3 — Maintenance & Hardening
+
+## Goal
+
+Correct verified defects, quality gaps and documentation drift in the accepted Horizon **0.2.0** baseline without adding providers or features, and without changing the authentication boundaries or the ADR-0012 meters contract.
+
+## Entry Conditions
+
+* Stage 2 closed (2026-10-09). Phase 9 accepted. Horizon **0.2.0** (`v0.2.0`) released.
+* An external Watcher audit of the 0.2.0 baseline exists: `reports/post-v0.2.0-external-watcher-1.md` (findings W-01..W-14).
+* Owners explicitly authorize Stage 3 / Phase 10 (authorized 2026-11-27).
+
+## Planned Phases
+
+* Phase 10 — Post-0.2.0 Remediation (authorized 2026-11-27).
+
+No other Stage 3 phase is planned or authorized.
+
+## Exit Conditions
+
+All authorized Stage 3 phases are accepted. The four existing providers (Codex, Cursor, StepFun, Claude), the authentication boundaries (ADR-0004, 0007, 0009, 0010, 0011) and the ADR-0012 meters contract remain intact. No provider or feature expansion was implemented. No later phase is opened automatically.
+
+---
+
+# Phase 10 — Post-0.2.0 Remediation
+
+> **Status:** implemented; Watcher PASS 2026-11-27; awaiting owner acceptance. Task: `tasks/phase-10-post-0.2.0-remediation.md`. Branch `phase-10-post-0.2.0-remediation` from `eadcfb3`.
+
+## Goal
+
+Resolve external Watcher findings W-01..W-14 (`reports/post-v0.2.0-external-watcher-1.md`) against the 0.2.0 baseline with the smallest correction each finding needs, with direct test or inspection evidence for each.
+
+## Entry Conditions
+
+* Stage 3 / Phase 10 explicitly authorized in `TASKS.md`.
+* Baseline `eadcfb3` (`v0.2.0` at `cbc2c93` plus the audit report commit). Python and QML tests pass at baseline.
+
+## Scope
+
+Only findings W-01..W-14, each with the smallest fix that matches the report:
+
+* **W-01 — StepFun credit breakdown.** The single `Credits` meter is derived only from valid `credit_buckets`. When buckets are absent or invalid, the existing `Subscription Credits` / `Top-up Credits` branch becomes reachable and is used. Separate rates are never added together or collapsed into one `Credits` row. Docs match the code.
+* **W-02 — StepFun refresh duplicate request.** The usage body that validated a refreshed (or already-rotated) token is returned and reused by `fetch_usage()`. `QueryStepPlanRateLimit` is not posted a second time for that recovery. A successful usage response is still required before any KWallet write.
+* **W-03 — Refresh key handling.** Remove the redundant `Keys.onSpacePressed` from the popup Refresh button, make Return/Enter acceptance explicit, and test that Space, Return and Enter each activate Refresh exactly once and not at all when disabled.
+* **W-04 — StepFun auth status.** `stepfun_auth_helper.py` and `ai-usage auth stepfun set|status` distinguish auth rejection (`auth_unavailable` → `auth_failed`) from network/upstream/collector failure (a distinct non-destructive status). The settings page shows an accurate message for the new status. Remove the unused `token` parameter of `verify_token()`.
+* **W-05 — Settings helper path and launch failure.** Resolve the helper under the XDG data location the installer uses, show a clear error state when the helper produces no stdout or exits non-zero, and remove the stale fallback comment.
+* **W-06 — Provider numeric and I/O edge cases.** Treat `bool` and non-finite numbers as invalid in the cited Claude/Codex/Cursor parsers (same outcome as existing invalid values). Catch `OSError` in Codex `_load_auth()` and `json.JSONDecodeError` in Codex `_refresh_tokens()` as `ProviderError`.
+* **W-07 — Shell quoting.** Shell-quote the collector path in `main.qml` `collectorCommand()`.
+* **W-08 — Frozen relative times.** Reset and cache-age text in the popup is recomputed from stored timestamps on popup open or a lightweight periodic tick, not frozen between refreshes.
+* **W-09 — Installer pipefail.** Remove the `grep -q` under `pipefail` pattern from `install.sh` and `uninstall.sh` `kpackagetool6 --list` checks.
+* **W-10 — Cache secret-key check.** The cache writer rejects the existing forbidden secret keys recursively (nested dicts and lists) and case-insensitively. The set of stored public fields does not change.
+* **W-11 — qmllint.** Fix the cited warnings only: the unused import and unqualified `stepfunBusy` in `configGeneral.qml`; `pragma ComponentBehavior: Bound`, `required property` on `Repeater` delegates, and qualified `plasmoid.configuration` access in `main.qml`.
+* **W-12 — Test hygiene.** Restore any pre-existing `XDG_CACHE_HOME` in `test_cache_refuses_secret_fields`. Add targeted tests alongside W-01..W-06.
+* **W-13 — Codex doc.** `docs/providers/codex.md` matches the installed wrapper script and the full duration-label mapping.
+* **W-14 — Doc drift.** Fix `docs/providers/cursor.md` plan source, `docs/cache.md` persisted fields, and `docs/release.md` release-notes command. Document the existing in-process `threading.Lock` in `docs/providers/stepfun.md`.
+
+## Explicit Exclusions
+
+* New providers (including Groq), billing, spend, balances, accounts, login flows, or new features of any kind.
+* Changes to authentication boundaries or credential-store behavior beyond W-02/W-04 as written: no new token refresh paths, no Codex/Cursor/Claude credential changes, no storing of an unvalidated refreshed token, no weakening of `auth_unavailable`.
+* Changes to the ADR-0012 meters contract, the normalized payload schema, or the set of cached public fields.
+* A cross-process lock for StepFun refresh. Editing ADR-0010, ADR-0012, or any other accepted decision record.
+* QML redesign, layout or visual changes, new settings, new configuration keys. qmllint warnings beyond those cited in W-11.
+* Changing `VERSION`, `plasmoid/metadata.json` `KPlugin.Version`, or the README version line. Tags, GitHub releases, publishing.
+* Rewriting accepted Phase 0–9 contracts, task files or handoffs.
+
+## Acceptance Criteria
+
+1. Each of W-01..W-14 is resolved as specified in Scope, with the per-finding acceptance check in the task file supported by direct evidence (test, diff, command output or runtime observation), or recorded with evidence as a false positive where the task file allows it.
+2. StepFun: credit payloads without valid buckets produce `Subscription Credits` / `Top-up Credits` meters, never a merged `Credits` row from separate rates. Refresh recovery issues exactly one `QueryStepPlanRateLimit` per token it validates, and KWallet is written only after a successful usage response.
+3. StepFun auth status: an offline or upstream failure is never reported as a rejected token. A rejected token still reports `auth_failed` / `auth_unavailable`.
+4. No regression: all pre-existing Python and QML tests pass, plus new tests. The four providers still work independently on this machine (`ai-usage status <id> --json` for each).
+5. ADR-0012 contract unchanged: meter labels other than W-01's restored credit labels, meter order, remaining-percent semantics and cached field set are unchanged.
+6. `qmllint6` shows none of the W-11 cited warnings, and its total warning count does not increase over the baseline.
+7. The widget and settings page load and work on the real Plasma desktop after `scripts/install.sh` (popup, Refresh keys, StepFun settings status).
+8. Secret audit passes. No token or secret appears in the diff, tests, logs or task evidence.
+9. `VERSION` and version strings are unchanged. No tag or release.
+10. Out-of-scope discoveries are recorded as Deferred Work.
+11. Independent Watcher verification returns PASS. Owners explicitly accept after reviewing the evidence.
+
+## Handoff Contract
+
+* Record direct evidence for every W-ID and every criterion in the task file. Watcher reports go under the gitignored `reports/` as `stage-3-phase-10-watcher-<attempt>.md`.
+* Promote durable facts to `docs/` only where W-01, W-13 and W-14 require it. No new decision record unless future work must respect a new choice.
+* Independent Watcher PASS, then explicit owner acceptance.
+* Only after acceptance, write `docs/handoffs/phase-10.md` and produce the checkpoint.
+* Any release (version bump, tag, GitHub release) is a separate, explicitly approved owner action.
+* STOP. Do not start new work or a new phase automatically.

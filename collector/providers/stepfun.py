@@ -66,14 +66,13 @@ class StepFunProvider:
         except ProviderError as exc:
             if exc.code != "auth_unavailable":
                 raise
-            token = self._recover_after_auth_rejection(token)
+            token, usage = self._recover_after_auth_rejection(token)
             webid = derive_oasis_webid(token) or webid
             app_id = derive_oasis_app_id(token) or app_id
-            usage = self._post_json(RATE_LIMIT_PATH, token, webid, app_id, {})
         plan_label = self._plan_label(token, webid, app_id)
         return self._normalize(usage, plan_label)
 
-    def _recover_after_auth_rejection(self, previous_token: str) -> str:
+    def _recover_after_auth_rejection(self, previous_token: str) -> tuple[str, dict[str, Any]]:
         """One bounded Oasis refresh using stored material only. Replaces KWallet only after validation."""
         with _REFRESH_LOCK:
             current = self._load_token() or previous_token
@@ -86,8 +85,8 @@ class StepFunProvider:
             app_id = derive_oasis_app_id(current) or FALLBACK_OASIS_APP_ID
             if current != previous_token:
                 try:
-                    self._post_json(RATE_LIMIT_PATH, current, webid, app_id, {})
-                    return current
+                    usage = self._post_json(RATE_LIMIT_PATH, current, webid, app_id, {})
+                    return current, usage
                 except ProviderError as exc:
                     if exc.code != "auth_unavailable":
                         raise
@@ -101,7 +100,7 @@ class StepFunProvider:
             refreshed_webid = derive_oasis_webid(refreshed) or webid
             refreshed_app = derive_oasis_app_id(refreshed) or app_id
             try:
-                self._post_json(RATE_LIMIT_PATH, refreshed, refreshed_webid, refreshed_app, {})
+                usage = self._post_json(RATE_LIMIT_PATH, refreshed, refreshed_webid, refreshed_app, {})
             except ProviderError:
                 # Keep the previous KWallet value.
                 raise ProviderError(
@@ -113,7 +112,7 @@ class StepFunProvider:
             except SecretStoreError:
                 # Validated token still used for this request; store write failure is not a silent wipe.
                 pass
-            return refreshed
+            return refreshed, usage
 
     def _refresh_oasis_token(self, token: str, webid: str, app_id: str) -> str:
         data = self._post_json(
@@ -443,22 +442,19 @@ def credit_breakdown(usage: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _combined_credit_left_rate(credit: dict[str, Any]) -> float | None:
     buckets = credit.get("credit_buckets")
-    if isinstance(buckets, list) and buckets:
-        totals: list[float] = []
-        residuals: list[float] = []
-        for bucket in buckets:
-            if not isinstance(bucket, dict):
-                return None
-            total = _as_float(bucket.get("credit_total"))
-            residual = _as_float(bucket.get("credit_residual"))
-            if total is None or residual is None or total <= 0 or residual < 0 or residual > total:
-                return None
-            totals.append(total)
-            residuals.append(residual)
-        if len(totals) == len(buckets) and totals:
-            return sum(residuals) / sum(totals)
-
-    sub = _as_float(credit.get("subscription_credit_left_rate"))
-    if sub is not None:
-        return sub
-    return _as_float(credit.get("topup_credit_left_rate"))
+    if not isinstance(buckets, list) or not buckets:
+        return None
+    totals: list[float] = []
+    residuals: list[float] = []
+    for bucket in buckets:
+        if not isinstance(bucket, dict):
+            return None
+        total = _as_float(bucket.get("credit_total"))
+        residual = _as_float(bucket.get("credit_residual"))
+        if total is None or residual is None or total <= 0 or residual < 0 or residual > total:
+            return None
+        totals.append(total)
+        residuals.append(residual)
+    if len(totals) == len(buckets) and totals:
+        return sum(residuals) / sum(totals)
+    return None

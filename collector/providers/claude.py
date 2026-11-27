@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import time
 import urllib.error
@@ -196,11 +197,13 @@ def _plan_label(subscription_type: Any) -> str:
 
 
 def _expired(expires_at: Any) -> bool:
-    if expires_at is None:
+    if expires_at is None or isinstance(expires_at, bool):
         return False
     try:
         stamp = float(expires_at)
     except (TypeError, ValueError):
+        return False
+    if not math.isfinite(stamp):
         return False
     # Claude Code stores unix milliseconds. Values below 1e11 are seconds.
     if stamp < 100_000_000_000:
@@ -210,16 +213,19 @@ def _expired(expires_at: Any) -> bool:
 
 def _utilization(window: dict[str, Any]) -> float | None:
     value = window.get("utilization")
-    if value is None:
+    if value is None or isinstance(value, bool):
         return None
     try:
-        return float(value)
+        num = float(value)
     except (TypeError, ValueError):
         return None
+    if not math.isfinite(num):
+        return None
+    return num
 
 
 def _remaining_from_used(used: float | None) -> int | None:
-    if used is None:
+    if used is None or isinstance(used, bool) or not math.isfinite(used):
         return None
     return max(0, min(100, int(round(100.0 - used))))
 

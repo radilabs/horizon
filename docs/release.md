@@ -46,10 +46,12 @@ kpackagetool6 --type Plasma/Applet --show com.radilabs.horizon | grep -i version
 ```bash
 git tag -a v0.2.0 -m "Horizon 0.2.0"
 git push origin v0.2.0
-gh release create v0.2.0 --title "Horizon 0.2.0" --notes-file CHANGELOG.md
+awk '/^## /{if (on) exit; if ($0 ~ /^## 0\.2\.0([^0-9]|$)/) on=1} on' CHANGELOG.md > /tmp/horizon-v0.2.0-notes.md
+gh release create v0.2.0 --title "Horizon 0.2.0" --notes-file /tmp/horizon-v0.2.0-notes.md
+rm -f /tmp/horizon-v0.2.0-notes.md
 ```
 
-Use the changelog section for that version as the release notes. Do not attach secrets.
+Use only the changelog section for that version as the release notes. Do not attach secrets.
 
 ## Notes
 

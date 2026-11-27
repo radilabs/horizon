@@ -99,7 +99,7 @@ Identifiers such as email / user ids may appear upstream; Horizon drops them fro
 | `plan_type` | `plan` (`plus` → `ChatGPT Plus`, etc.) |
 | `100 - rate_limit.primary_window.used_percent` | first meter's `remainingPercent` |
 | `rate_limit.primary_window.reset_at` | that meter's `resetAt` (ISO-8601 local offset) |
-| `limit_window_seconds` | meter `label` (`5-hour limit`, `Weekly limit`, or `Usage limit`; never Primary/Secondary) |
+| `limit_window_seconds` | meter `label` (`5-hour limit`, `Weekly limit`, `{n}-day limit`, `{n}-hour limit`, or `Usage limit`; never Primary/Secondary; see `docs/usage-schema.md`) |
 | `secondary_window`, when present | second meter, with its own reset |
 | success | `status`: `ok` |
 
@@ -182,7 +182,7 @@ Intentionally ignored upstream fields: email, user ids, credits/spend details, p
 
 * Implementation: `collector/ai-usage` with `collector/providers/codex.py`
 * Selected via explicit registry (`PROVIDERS["codex"] = CodexProvider`)
-* Recommended install: symlink to `~/.local/bin/ai-usage`
+* Recommended install: wrapper script at `~/.local/bin/ai-usage` installed by `scripts/install.sh` (not a symlink into the git checkout)
 * Plasmoid executes: `$HOME/.local/bin/ai-usage status codex --json`
 * Last-successful cache: `~/.cache/horizon/usage-codex.json` (normalized only)
 

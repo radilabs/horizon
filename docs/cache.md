@@ -34,6 +34,20 @@ Not in the git repository. Not beside provider credentials. Never contains Oasis
 
 ## Format
 
+Persisted envelope keys: `fetchedAt`, `provider`, `data`.
+
+Persisted `data` keys (written by `collector/cache.py`, present only when the normalized payload has them):
+
+* `provider`
+* `displayName`
+* `plan`
+* `remainingPercent`
+* `resetAt`
+* `status`
+* `secondaryRemainingPercent` (optional; present when a second meter exists)
+* `breakdown` (optional; compatibility copy of `meters`)
+* `meters` (ordered meters list)
+
 ```json
 {
   "fetchedAt": "2026-08-10T20:30:00+02:00",
@@ -45,11 +59,29 @@ Not in the git repository. Not beside provider credentials. Never contains Oasis
     "remainingPercent": 94,
     "resetAt": "2026-08-17T12:00:00+02:00",
     "status": "ok",
+    "secondaryRemainingPercent": 80,
+    "breakdown": [
+      {
+        "label": "Weekly limit",
+        "remainingPercent": 94,
+        "resetAt": "2026-08-17T12:00:00+02:00"
+      },
+      {
+        "label": "5-hour limit",
+        "remainingPercent": 80,
+        "resetAt": "2026-08-10T23:00:00+02:00"
+      }
+    ],
     "meters": [
       {
         "label": "Weekly limit",
         "remainingPercent": 94,
         "resetAt": "2026-08-17T12:00:00+02:00"
+      },
+      {
+        "label": "5-hour limit",
+        "remainingPercent": 80,
+        "resetAt": "2026-08-10T23:00:00+02:00"
       }
     ]
   }
