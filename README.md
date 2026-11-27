@@ -36,7 +36,7 @@ Horizon is intentionally **not** a provider login client, an OAuth broker, a bro
 | Provider | Auth |
 |----------|------|
 | **OpenAI Codex** (ChatGPT Plus) | Reuses `~/.codex/auth.json` |
-| **Cursor** | Reads local Cursor session (`state.vscdb`) read-only |
+| **Cursor** | Reads the IDE session (`state.vscdb`) and the CLI file (`~/.config/cursor/auth.json`) read-only |
 | **Claude** (Pro/Max) | Reads Claude Code credentials read-only |
 | **StepFun Step Plan** | User-supplied Oasis token stored only in **KWallet** |
 
@@ -105,7 +105,7 @@ ai-usage status codex --json
 
 ### Cursor
 
-Stay signed in to the Cursor app. Horizon reads session state transiently and never modifies it.
+Horizon reads two Cursor-owned files and never modifies or refreshes them. It sends the IDE `cursorAuth/accessToken` only when that value is a JWT. Otherwise, and when the usage API rejects that token, it uses the `accessToken` in `~/.config/cursor/auth.json`. Sign in with the Cursor CLI (`agent`) so that file exists. A sign-in in the desktop app alone can leave an opaque session value that Horizon will not send.
 
 ```bash
 ai-usage status cursor --json
@@ -140,7 +140,7 @@ Status is `Configured · working` only after StepFun accepts the token — not m
 
 ## Security
 
-* Prefer provider-owned credentials (Codex, Cursor, Claude). Claude credentials stay read-only (ADR-0011)
+* Prefer provider-owned credentials (Codex, Cursor, Claude). Cursor credentials stay read-only (ADR-0007, ADR-0013). Claude credentials stay read-only (ADR-0011)
 * StepFun token: OS credential store only (ADR-0009); bounded Oasis refresh write-back (ADR-0010)
 * Usage cache (`~/.cache/horizon/usage-*.json`): normalized non-secret data only
 * No telemetry / analytics / cloud sync

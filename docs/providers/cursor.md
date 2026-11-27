@@ -1,14 +1,22 @@
-# Cursor provider notes (Phase 3)
+# Cursor provider notes (Phase 3, updated Phase 11)
 
 ## Cursor installation observed
 
-* Cursor version: **3.15.6** (desktop; Electron/VS Code fork)
-* Config home: `~/.config/Cursor/`
-* Relevant auth/session store:
-  `~/.config/Cursor/User/globalStorage/state.vscdb`
-* Related Electron artifacts that must never enter Git: `Cookies`, `Cookies-journal`, `storage.json`, `state.vscdb*`
+* Phase 3 observation: Cursor desktop **3.15.6** (Electron/VS Code fork).
+* Phase 11 observation (2026-11-27): Cursor desktop **3.28.7** and the Cursor CLI `agent` **2026.11.22-e9042b2**.
+* Config homes: `~/.config/Cursor/` (desktop) and `~/.config/cursor/` (CLI).
+* Credential sources (both Cursor-owned, both read-only):
+
+| Id | Source | Value used |
+|----|--------|-----------|
+| **IDE** | `~/.config/Cursor/User/globalStorage/state.vscdb`, `ItemTable` key `cursorAuth/accessToken` | the key's value, only when it is JWT-shaped |
+| **CLI** | `~/.config/cursor/auth.json` | the top-level `accessToken` string only |
+
+* Related Electron artifacts that must never enter Git: `Cookies`, `Cookies-journal`, `storage.json`, `state.vscdb*`, and the CLI `auth.json`.
 
 ## Authentication / session mechanism
+
+### IDE source (Phase 3 mechanism)
 
 Cursor stores signed-in session material in a **SQLite** database (`state.vscdb`), table `ItemTable` (key/value).
 
@@ -21,33 +29,49 @@ Relevant keys observed (names only; values never logged or committed):
 | `cursorAuth/stripeMembershipType` | Local membership label hint (e.g. `pro`) |
 | `cursorAuth/stripeSubscriptionStatus` | Local status hint (e.g. `active`) |
 
-Not used by Horizon:
+**Phase 11 change.** On desktop **3.28.7**, after a sign-out and sign-in inside the GUI, `cursorAuth/accessToken` is an **opaque, non-JWT value**: it has no dots, three colon-separated parts, and it equals `cursorAuth/refreshToken`. Sending it as `Authorization: Bearer` returned **HTTP 401**. Horizon therefore treats the IDE value as sendable only when it is **JWT-shaped**.
 
-* OS keyring / KWallet
-* A Horizon-owned Cursor credential store
-* Browser cookie jars as the primary auth source for this integration
+**JWT-shaped** means a non-empty string of exactly three non-empty segments separated by `.`. This is a **shape check only**. Horizon does not decode, parse, verify or inspect any segment or claim, and never exchanges the opaque value for another token.
+
+### CLI source (Phase 11 addition)
+
+`~/.config/cursor/auth.json` is owned by the Cursor CLI `agent`. Horizon reads its top-level `accessToken` only. That value **is** JWT-shaped, and the same usage request with it returned **HTTP 200**. The CLI `refreshToken` is **never** used, sent or kept; if the parser reads the whole JSON object it keeps only `accessToken`.
 
 ### Preferred reuse method (implemented)
 
-**Transient read-only access** to `state.vscdb`:
+**Transient read-only access** to both files:
 
-1. Open the DB with SQLite URI `mode=ro` (read-only).
-2. Read `cursorAuth/accessToken` into memory for the request.
+1. Open the DB with SQLite URI `mode=ro` (read-only); open `auth.json` with a plain read-only open.
+2. Read the bearer for one attempt into memory only.
 3. Call Cursor DashboardService over HTTPS with `Authorization: Bearer <token>`.
 4. Discard the token when the process exits; never write tokens to Horizon cache, config, stdout, or docs.
 
 Horizon must **not**:
 
-* write refreshed tokens back into Cursor’s DB
+* write refreshed tokens back into either Cursor file
 * copy tokens into `~/.cache/horizon/`
-* implement a Cursor login / OAuth flow
+* implement a Cursor login / OAuth / device flow, or run `agent login`, the `agent` binary or the Cursor app
+* refresh, rotate or exchange a token
 * modify Cursor authentication state
+* decode the opaque IDE envelope (no splitting, decrypting, base64 work or exchange)
+
+### Source order and fallback (ADR-0013)
+
+1. If the IDE value exists and is JWT-shaped, send it to `GetCurrentPeriodUsage`.
+2. A non-JWT IDE value is **not sent**. It is recorded as `unsupported format` and Horizon moves to the CLI source.
+3. Horizon tries the CLI `accessToken` only if (a) the IDE source gave no sendable value, or (b) the IDE attempt returned **HTTP 401 or 403**.
+4. **Network errors, non-auth HTTP statuses, non-200 responses, invalid JSON and unexpected response shapes do not fall through.** They stop the fetch as `upstream_error`.
+5. The bearer that got **HTTP 200** from `GetCurrentPeriodUsage` is the only one used for `GetPlanInfo`. A `GetPlanInfo` failure still falls back to the local `stripeMembershipType` label, then to `Cursor`, and never triggers a credential fallback.
+6. `detect()` raises `auth_unavailable` only when **neither** source file is present.
 
 Optional overrides (testing / unusual layouts only):
 
-* `--auth-file <path>` → treat path as `state.vscdb`
-* `CURSOR_STATE_VSCDB` → alternate state DB path
+* `--auth-file <path>` → treat path as the IDE `state.vscdb`
+* `CURSOR_STATE_VSCDB` → alternate IDE state DB path
+* `CURSOR_CLI_AUTH_FILE` → alternate CLI `auth.json` path
 * `CURSOR_API_BASE` → alternate API origin (failure tests)
+
+Overrides are paths only. Horizon never writes to them and none becomes a credential store.
 
 ## Usage / quota mechanism
 
@@ -170,30 +194,54 @@ Same rules as Codex: success writes normalized data only; live failure may retur
 
 ## Failure behavior
 
+The status vocabulary does not change: `auth_unavailable`, `upstream_error`, and `stale` through the existing cache fallback.
+
 | Condition | Result |
 |-----------|--------|
-| Missing/unreadable `state.vscdb` or missing access token | `auth_unavailable` |
-| HTTP 401/403 from usage API | `auth_unavailable` |
-| Network / non-auth HTTP / bad JSON | `upstream_error` |
+| Neither source file present | `auth_unavailable` (from `detect()`; no HTTP request) |
+| No source yields HTTP 200 | `auth_unavailable`, with a per-source message (see below) |
+| Network error, non-auth HTTP, non-200, invalid JSON, unexpected shape | `upstream_error` (no credential fallback) |
 | Live fail + warm cache | `stale` |
 | Live fail + no cache | error status as above |
 
 Cursor failures do not affect the Codex provider path (separate CLI invocations and cache files).
 
+### Per-source outcomes
+
+When no source yields HTTP 200, the result is `auth_unavailable` and the message names each source with one outcome from this fixed set:
+
+| Outcome | Meaning |
+|---------|---------|
+| `not found` | source file absent |
+| `unreadable` | file present but cannot be opened or parsed (SQLite error, OS error, invalid JSON, non-object JSON) |
+| `no token` | file readable, but the key or field is absent, empty or not a string |
+| `unsupported format` | IDE value present but not JWT-shaped (IDE source only; never sent) |
+| `rejected (HTTP 401)` | the API rejected this source's bearer with 401 |
+| `rejected (HTTP 403)` | the API rejected this source's bearer with 403 |
+
+Message form:
+
+```text
+Cursor usage unauthorized: IDE <outcome>; CLI <outcome>. Sign in to Cursor or the Cursor CLI (agent login).
+```
+
+The remediation points the user at Cursor's own tools; Horizon never runs them. Messages never include token text, token lengths or prefixes, segment counts, JWT claims, emails, user ids or response bodies.
+
 ## Security constraints
 
-* Credentials remain owned by Cursor (`state.vscdb`).
-* Horizon opens the DB read-only and never persists tokens.
+* Credentials remain owned by Cursor, now in **both** files: the IDE `state.vscdb` and the CLI `auth.json`.
+* Horizon opens both read-only and never persists tokens.
 * Docs and evidence must use redacted/sanitized examples only.
 * Repository ignores Cursor session artifacts (see `.gitignore`).
 
 ## Upstream fragility
 
 * DashboardService paths and JSON field names are **unofficial** and can break on Cursor updates.
-* Access tokens expire; Horizon does **not** refresh them into Cursor storage. If the token is expired, the user must re-authenticate inside Cursor.
+* Both credential files are unofficial Cursor internals. The desktop IDE's `accessToken` became opaque on **3.28.7**, which is why the CLI source exists. Either file's format can change on any Cursor update.
+* Horizon does **not** refresh tokens into Cursor storage. If a token is rejected, sign in to Cursor or run the Cursor CLI `agent login`; Horizon does neither.
 * `Connect-Protocol-Version: 1` appears required for these POSTs.
 
 ## Unknowns / deferred
 
-* Whether token refresh without writing Cursor’s DB is worthwhile mid-request → deferred
-* StepFun → Phase 4
+* A local JWT `exp` check, to skip an expired CLI token without a round trip, is **not** implemented. It is Deferred Work, not current behavior.
+* Whether token refresh without writing either Cursor file is worthwhile mid-request → deferred

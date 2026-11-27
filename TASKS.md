@@ -10,9 +10,11 @@ Only an explicitly authorized phase may be executed.
 - **Current phase:** none authorized
 - **Status:** idle
 
-Stage 3 is closed. Phase 10 was accepted on 2026-11-27. Snapshot: `docs/handoffs/phase-10.md`. Horizon release is **0.2.1** (`v0.2.1`).
+Stage 3 is closed. Phase 11 was accepted on 2026-11-27. Snapshot: `docs/handoffs/phase-11.md`. Horizon release remains **0.2.1** (`v0.2.1`). No release was made with this acceptance.
 
 No Stage or Phase is authorized. Do not begin new work.
+
+Phase 10 was accepted on 2026-11-27. Snapshot: `docs/handoffs/phase-10.md`.
 
 Stage 2 is closed. Phase 9 was accepted on 2026-10-09. Snapshot: `docs/handoffs/phase-9.md`.
 
@@ -21,6 +23,7 @@ Stage 2 is closed. Phase 9 was accepted on 2026-10-09. Snapshot: `docs/handoffs/
 **Stage 3 — Maintenance & Hardening (closed 2026-11-27):**
 
 - Phase 10 — Post-0.2.0 Remediation (accepted 2026-11-27)
+- Phase 11 — Cursor Credential Compatibility (accepted 2026-11-27)
 
 No phase is executable.
 
@@ -51,14 +54,17 @@ tasks/
 ├── phase-7-provider-information-contract.md  # ACCEPTED (historical)
 ├── phase-8-plasma-ui-refresh.md          # ACCEPTED (historical)
 ├── phase-9-compact-ux-release-polish.md  # ACCEPTED (historical)
-└── phase-10-post-0.2.0-remediation.md    # ACCEPTED (historical)
+├── phase-10-post-0.2.0-remediation.md    # ACCEPTED (historical)
+└── phase-11-cursor-credential-compatibility.md  # ACCEPTED (historical)
 ```
 
 Historical task files are execution evidence only. Their presence does not authorize further work.
 
 ## History
 
-Last completed phase: **Phase 10 — Post-0.2.0 Remediation** (accepted 2026-11-27; Horizon **0.2.1**).
+Last completed phase: **Phase 11 — Cursor Credential Compatibility** (accepted 2026-11-27; Horizon remains **0.2.1**).
+
+Phase 10 — Post-0.2.0 Remediation was accepted 2026-11-27 (Horizon **0.2.1**).
 
 Phase 9 — Compact UX and Release Polish was accepted 2026-10-09 (Horizon **0.2.0**).
 
@@ -72,7 +78,7 @@ Phase 6 — StepFun Auth Resilience was accepted 2026-09-11 (Horizon **0.1.1**).
 
 Phases 0–5 predate adoption of the current Stage-aware Factory shell. Their accepted history is preserved as-is and must not be rewritten retrospectively.
 
-Stage 1 closed after Phase 6.5. Stage 2 closed after Phase 9. Stage 3 closed after Phase 10.
+Stage 1 closed after Phase 6.5. Stage 2 closed after Phase 9. Stage 3 closed after Phase 11.
 
 ## Authority
 
@@ -80,4 +86,4 @@ Stage 1 closed after Phase 6.5. Stage 2 closed after Phase 9. Stage 3 closed aft
 - Stage/phase contracts: `PHASES.md`
 - Accepted snapshots: `docs/handoffs/`
 
-Do not add providers (including Groq). Do not start a phase after Phase 10 without explicit authorization.
+Do not add providers (including Groq). Do not start a phase after Phase 11 without explicit authorization.

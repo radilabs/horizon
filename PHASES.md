@@ -832,14 +832,15 @@ Correct verified defects, quality gaps and documentation drift in the accepted H
 ## Planned Phases
 
 * Phase 10 — Post-0.2.0 Remediation (accepted 2026-11-27; snapshot `docs/handoffs/phase-10.md`).
+* Phase 11 — Cursor Credential Compatibility (accepted 2026-11-27; snapshot `docs/handoffs/phase-11.md`).
 
-> **Status:** closed 2026-11-27. Phase 10 is accepted. Horizon **0.2.1**. No later phase is authorized.
+> **Status:** closed 2026-11-27. Phase 10 and Phase 11 are accepted. Horizon **0.2.1**. No later phase is authorized.
 
 No other Stage 3 phase is planned or authorized.
 
 ## Exit Conditions
 
-All authorized Stage 3 phases are accepted. The four existing providers (Codex, Cursor, StepFun, Claude), the authentication boundaries (ADR-0004, 0007, 0009, 0010, 0011) and the ADR-0012 meters contract remain intact. No provider or feature expansion was implemented. No later phase is opened automatically.
+All authorized Stage 3 phases are accepted. The four existing providers (Codex, Cursor, StepFun, Claude) remain. ADR-0013 supersedes only ADR-0007's single-source restriction and its only-remediation rule. The read-only, no-write, no-login, and no-refresh boundaries, and the ADR-0012 meters contract, remain in force. No provider or feature expansion is implemented. No later phase is opened automatically.
 
 ---
 
@@ -905,5 +906,83 @@ Only findings W-01..W-14, each with the smallest fix that matches the report:
 * Promote durable facts to `docs/` only where W-01, W-13 and W-14 require it. No new decision record unless future work must respect a new choice.
 * Independent Watcher PASS, then explicit owner acceptance.
 * Only after acceptance, write `docs/handoffs/phase-10.md` and produce the checkpoint.
+* Any release (version bump, tag, GitHub release) is a separate, explicitly approved owner action.
+* STOP. Do not start new work or a new phase automatically.
+
+---
+
+# Phase 11 — Cursor Credential Compatibility
+
+> **Status:** accepted 2026-11-27. Snapshot: `docs/handoffs/phase-11.md`. Horizon remains **0.2.1**. No release in this checkpoint.
+
+## Goal
+
+Restore Cursor `GetCurrentPeriodUsage` for a signed-in user on Cursor desktop 3.28.x. The desktop IDE now stores an opaque, non-JWT `cursorAuth/accessToken` that the API rejects with HTTP 401. Add the Cursor CLI's own `~/.config/cursor/auth.json` as a second read-only, Cursor-owned credential source, as decided in ADR-0013. Credentials stay Cursor-owned, read-only and in memory only.
+
+## Entry Conditions
+
+* Phase 10 accepted (2026-11-27). Horizon **0.2.1** (`v0.2.1` at `3891626`).
+* ADR-0013 (`decisions/0013-cursor-dual-source-read-only-credentials.md`) accepted by the owner.
+* Stage 3 / Phase 11 explicitly authorized in `TASKS.md` (2026-11-27).
+* Baseline `3891626`: `python3 -m unittest discover -s tests` passes (48 tests); the QML test suites pass.
+
+## Scope
+
+Only `collector/providers/cursor.py`, any small `collector/ai-usage` wiring it needs, and new or updated Python tests. Docs follow afterwards through the Writer step below.
+
+1. **IDE source (unchanged path).** Read `cursorAuth/accessToken` from `state.vscdb` with SQLite `mode=ro`. `--auth-file` and `CURSOR_STATE_VSCDB` remain the IDE override.
+2. **JWT shape gate.** Use the IDE value only when it is a non-empty string of exactly three non-empty `.`-separated segments. Do not decode, split, decrypt or exchange a non-JWT value, and do not send it.
+3. **CLI source.** Add read-only support for `~/.config/cursor/auth.json`, using only its top-level `accessToken` string. Never use, send or keep `refreshToken`. Add a test-only path override, `CURSOR_CLI_AUTH_FILE`, that never becomes a credential store.
+4. **Order.** A usable IDE JWT is tried first. Only on HTTP 401/403 from that attempt, or when the IDE source has no sendable value, try the CLI token.
+5. **No fallback on upstream failure.** A network error, a non-auth HTTP status, a non-200 response, invalid JSON or an unexpected shape from any attempt stops with `upstream_error`.
+6. **Plan info.** Reuse the bearer that got HTTP 200 for `GetPlanInfo`. Existing `stripeMembershipType` fallback unchanged. A `GetPlanInfo` failure never triggers a credential fallback.
+7. **detect().** Raise `auth_unavailable` only when neither source file is present.
+8. **Failure message.** When no source succeeds: `auth_unavailable` with a per-source outcome from the ADR-0013 fixed set (`not found`, `unreadable`, `no token`, `unsupported format`, `rejected (HTTP 401)`, `rejected (HTTP 403)`). No token text, lengths, prefixes, claims, emails or user ids.
+9. **Preserve.** Endpoints, request headers, request body, the `autoPercentUsed`/`apiPercentUsed` meter mapping, the normalized payload, the cached field set, and `auth_unavailable` / `upstream_error` / `stale` semantics.
+10. **Tests.** Regression tests for both sources, missing or invalid credentials, fallback precedence, authentication rejection, upstream failures, and the security checks: fixture files unchanged after a fetch, no token substring in output or cache, `refreshToken` never sent.
+11. **Writer step (after implementation, before Watcher).** Update the current Cursor docs against ADR-0013: `docs/providers/cursor.md`, `docs/provider-contract.md`, and `docs/security.md`.
+
+## Explicit Exclusions
+
+* Token refresh, rotation, write-back, login, OAuth, device flows, running `agent` or Cursor, or token exchange of any kind.
+* Decoding or inspecting any token, including a local JWT `exp` check (Deferred Work).
+* New providers (including Groq) and any general authentication framework or shared credential layer.
+* Changes to the ADR-0012 ordered meter contract, `docs/usage-schema.md`, the normalized schema, or the cached field set.
+* Changes to Codex, StepFun or Claude providers or their authentication boundaries (ADR-0004, 0009, 0010, 0011).
+* Editing ADR-0007 or any other accepted decision record, or accepted historical task files and handoffs (including `docs/handoffs/phase-3.md` and `docs/handoffs/phase-10.md`).
+* `VERSION`, `plasmoid/metadata.json` `KPlugin.Version`, the README version line, CHANGELOG release entries, tags, GitHub releases, or pushing to `main` during implementation.
+* Plasmoid QML, layout or visual changes.
+* Creating `docs/handoffs/phase-11.md` before owner acceptance.
+
+## Acceptance Criteria
+
+1. **Dual source with a fake API.** With `CURSOR_API_BASE` pointed at a local fake server and fixture files only (no real credentials), automated tests show:
+   - (a) an IDE JWT accepted gives `ok`, sends no CLI request, and uses the IDE bearer for `GetPlanInfo`;
+   - (b) an IDE JWT rejected with 401, and separately with 403, followed by a valid CLI token gives `ok` using the CLI bearer, which `GetPlanInfo` reuses;
+   - (c) a non-JWT IDE value is never sent and the CLI token is used;
+   - (d) a missing IDE database with a valid CLI file gives `ok`;
+   - (e) neither file present gives `auth_unavailable` from `detect()`;
+   - (f) both sources rejected, absent, unreadable or without a token give `auth_unavailable` with the correct fixed outcome for each source.
+2. **No fallback on upstream failure.** A network error, an HTTP 500, a 200 with invalid JSON, or a 200 missing both percent fields from the IDE attempt gives `upstream_error` with zero CLI requests. A warm cache in those cases gives `stale`.
+3. **Read-only.** Both fixture files are byte-identical with unchanged mtime after every fetch path.
+4. **Secret audit.**
+   - No fixture token substring appears in stdout, stderr, `--json` output, error messages or the cache file.
+   - No request carries a `refreshToken` value.
+   - No real token appears in the diff, tests, logs or evidence.
+   - No new file stores Cursor credentials.
+5. **Contract preserved.** Endpoints, headers, meter labels and order, remaining-percent semantics and cached field set are unchanged (diff review plus existing `CursorContractTests`). The status vocabulary is unchanged.
+6. **No regression.** All pre-existing Python and QML tests pass, plus the new tests. The four providers still work independently on this machine (`ai-usage status <id> --json` for codex, cursor, stepfun, claude), and Cursor returns `ok` live for the signed-in owner.
+7. **Scope fence.**
+   - `git diff 3891626` touches only `collector/providers/cursor.py`, optional minimal `collector/ai-usage` wiring, `tests/`, the three Writer docs, `decisions/0013-…`, and the Factory files (`PHASES.md`, `TASKS.md`, `tasks/`).
+   - `decisions/0007-…`, `VERSION`, `plasmoid/` and `docs/handoffs/` are unmodified.
+8. **Docs.** The Writer docs match ADR-0013 and the implemented behavior.
+9. **Deferred Work.** Out-of-scope discoveries are recorded in the task file.
+10. **Watcher, then stop.** Independent Watcher verification returns PASS. Work then stops for explicit owner acceptance.
+
+## Handoff Contract
+
+* Record direct evidence for every task and criterion in `tasks/phase-11-cursor-credential-compatibility.md`. Watcher reports go under the gitignored `reports/` as `stage-3-phase-11-watcher-<attempt>.md`.
+* Independent Watcher PASS, then explicit owner acceptance.
+* Only after acceptance, write `docs/handoffs/phase-11.md` and produce the checkpoint.
 * Any release (version bump, tag, GitHub release) is a separate, explicitly approved owner action.
 * STOP. Do not start new work or a new phase automatically.

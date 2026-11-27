@@ -52,8 +52,10 @@ Unknown provider ids fail with a clear error (no traceback for normal invalid in
 ## Registered providers
 
 * `codex` — ChatGPT / Codex usage (Phase 1–2)
-* `cursor` — Cursor DashboardService usage via local `state.vscdb` (Phase 3)
+* `cursor` — Cursor DashboardService usage from two read-only, Cursor-owned sources (Phase 3, extended Phase 11)
 * `stepfun` — StepFun Step Plan via user-supplied Oasis token in KWallet (Phase 4)
 * `claude` — Claude Pro/Max usage via read-only Claude Code credentials (Phase 6.5)
 
-Provider-specific auth path overrides may be passed through the generic `--auth-file` flag (Codex: `auth.json`; Cursor: `state.vscdb`; Claude: `.credentials.json`). StepFun uses `ai-usage auth stepfun …` and the OS credential store instead. Cursor and Claude auth remain read-only. Claude refresh is forbidden (ADR-0011).
+Cursor reads two sources (ADR-0013): the IDE `~/.config/Cursor/User/globalStorage/state.vscdb` key `cursorAuth/accessToken`, used only when that value is JWT-shaped, and the Cursor CLI `~/.config/cursor/auth.json` top-level `accessToken`. The CLI token is tried only when the IDE value is not sendable or the IDE attempt returns HTTP 401/403. Network errors, non-auth HTTP and bad JSON do not fall through. Both files are read-only; `refreshToken` in either file is never used.
+
+Provider-specific auth path overrides may be passed through the generic `--auth-file` flag (Codex: `auth.json`; Cursor: the IDE `state.vscdb`; Claude: `.credentials.json`). Cursor's second source is overridden with `CURSOR_CLI_AUTH_FILE`, alongside the existing `CURSOR_STATE_VSCDB` and `CURSOR_API_BASE`. StepFun uses `ai-usage auth stepfun …` and the OS credential store instead. Cursor and Claude auth remain read-only. Claude refresh is forbidden (ADR-0011).

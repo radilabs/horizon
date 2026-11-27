@@ -2,7 +2,7 @@
 
 ## Credential ownership
 
-Prefer **provider-owned** local authentication when it exists (Codex `auth.json`, Cursor `state.vscdb`, Claude Code `.credentials.json`).
+Prefer **provider-owned** local authentication when it exists (Codex `auth.json`, Cursor `state.vscdb` and `auth.json`, Claude Code `.credentials.json`).
 
 When a provider has **no** local credential store (StepFun), Horizon may securely store a **user-supplied** secret in the **OS credential store** (KWallet). See ADR-0009.
 
@@ -68,6 +68,7 @@ jq . "${XDG_CACHE_HOME:-$HOME/.cache}/horizon/usage-claude.json"
 Never open or commit:
 
 * Cursor `state.vscdb` / Cookies / `storage.json`
+* Cursor CLI `~/.config/cursor/auth.json`
 * Codex `auth.json`
 * Claude Code `~/.claude/.credentials.json`
 * any Oasis token material
