@@ -182,16 +182,43 @@ function tooltipText(providers) {
     return blocks.join("\n")
 }
 
+var MANUAL_ONLY_PROVIDERS = ["mimo"]
+var MIMO_REGIONS = ["sgp", "cn", "ams"]
+
+function normalizeMimoRegion(region) {
+    var r = String(region || "").trim()
+    if (MIMO_REGIONS.indexOf(r) >= 0)
+        return r
+    return "sgp"
+}
+
+function refreshIds(enabledIds, manual) {
+    if (!Array.isArray(enabledIds))
+        return []
+    if (manual === true)
+        return enabledIds.slice()
+    var out = []
+    for (var i = 0; i < enabledIds.length; i++) {
+        if (MANUAL_ONLY_PROVIDERS.indexOf(enabledIds[i]) < 0)
+            out.push(enabledIds[i])
+    }
+    return out
+}
+
 function shellSingleQuote(path) {
     return "'" + String(path).replace(/'/g, "'\\''") + "'"
 }
 
-function collectorCommandForBin(binPath, providerId) {
+function collectorCommandForBin(binPath, providerId, region) {
+    if (providerId === "mimo") {
+        var r = normalizeMimoRegion(region)
+        return shellSingleQuote(binPath) + " status mimo --json --region " + shellSingleQuote(r)
+    }
     return shellSingleQuote(binPath) + " status " + providerId + " --json"
 }
 
 function providerIdFromCommand(cmd) {
-    var m = /\sstatus\s+([A-Za-z0-9_-]+)\s+--json$/.exec(String(cmd || "").trim())
+    var m = /\sstatus\s+([A-Za-z0-9_-]+)\s+--json(?:\s+--region\s+'?[a-z]+'?)?$/.exec(String(cmd || "").trim())
     return m ? m[1] : ""
 }
 

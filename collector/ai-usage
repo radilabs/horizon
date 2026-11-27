@@ -19,6 +19,13 @@ from providers import ProviderError, error_payload  # noqa: E402
 from providers.claude import ClaudeProvider  # noqa: E402
 from providers.codex import CodexProvider  # noqa: E402
 from providers.cursor import CursorProvider  # noqa: E402
+from providers.mimo import (  # noqa: E402
+    DEFAULT_REGION as MIMO_DEFAULT_REGION,
+    REGIONS as MIMO_REGIONS,
+    SECRET_NAME as MIMO_SECRET_NAME,
+    MiMoProvider,
+    is_valid_token_plan_key,
+)
 from providers.stepfun import StepFunProvider  # noqa: E402
 from secret_store import SecretStoreError  # noqa: E402
 from secret_store import configured as secret_configured  # noqa: E402
@@ -30,6 +37,7 @@ PROVIDERS = {
     "cursor": CursorProvider,
     "stepfun": StepFunProvider,
     "claude": ClaudeProvider,
+    "mimo": MiMoProvider,
 }
 
 
@@ -37,7 +45,7 @@ def eprint(msg: str) -> None:
     print(msg, file=sys.stderr)
 
 
-def build_provider(provider_id: str, auth_file: str | None):
+def build_provider(provider_id: str, auth_file: str | None, region: str = MIMO_DEFAULT_REGION):
     cls = PROVIDERS.get(provider_id)
     if cls is None:
         return None
@@ -47,14 +55,65 @@ def build_provider(provider_id: str, auth_file: str | None):
         return cls(state_db=Path(auth_file).expanduser() if auth_file else None)
     if provider_id == "claude":
         return cls(credentials_path=Path(auth_file).expanduser() if auth_file else None)
+    if provider_id == "mimo":
+        return cls(region=region)
     return cls()
 
 
 def cmd_auth(args: argparse.Namespace) -> int:
-    if args.provider != "stepfun":
-        eprint("Only `ai-usage auth stepfun …` is supported")
+    if args.provider not in ("stepfun", "mimo"):
+        eprint("Only `ai-usage auth stepfun|mimo …` is supported")
         return 2
     action = args.auth_action
+    if args.provider == "mimo":
+        try:
+            if action == "set":
+                if sys.stdin.isatty():
+                    key = getpass.getpass("MiMo Token Plan key: ")
+                else:
+                    key = sys.stdin.readline()
+                key = (key or "").strip()
+                if not key or not is_valid_token_plan_key(key):
+                    print("invalid")
+                    return 1
+                secret_set("mimo", MIMO_SECRET_NAME, key)
+                try:
+                    MiMoProvider(region=args.region).fetch_usage()
+                    print("working")
+                    return 0
+                except ProviderError as exc:
+                    if exc.code == "auth_unavailable":
+                        print("auth_failed")
+                    else:
+                        print("unavailable")
+                    return 1
+                except Exception:  # noqa: BLE001
+                    print("unavailable")
+                    return 1
+            if action == "status":
+                if not secret_configured("mimo", MIMO_SECRET_NAME):
+                    print("missing")
+                    return 0
+                try:
+                    MiMoProvider(region=args.region).fetch_usage()
+                    print("working")
+                except ProviderError as exc:
+                    if exc.code == "auth_unavailable":
+                        print("auth_failed")
+                    else:
+                        print("unavailable")
+                except Exception:  # noqa: BLE001
+                    print("unavailable")
+                return 0
+            if action == "clear":
+                secret_delete("mimo", MIMO_SECRET_NAME)
+                print("cleared")
+                return 0
+        except SecretStoreError as exc:
+            eprint(str(exc))
+            return 1
+        eprint(f"Unknown auth action: {action}")
+        return 2
     try:
         if action == "set":
             # Never accept --token. Prompt with echo suppressed on a TTY;
@@ -116,7 +175,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         return 2
 
     provider_id = args.provider
-    provider = build_provider(provider_id, args.auth_file)
+    provider = build_provider(provider_id, args.auth_file, region=args.region)
     if provider is None:
         eprint(f"Unknown provider: {provider_id}")
         print(
@@ -184,10 +243,22 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Do not read or write the last-successful cache",
     )
+    status.add_argument(
+        "--region",
+        choices=list(MIMO_REGIONS),
+        default=MIMO_DEFAULT_REGION,
+        help="Region (used by mimo only; default: sgp)",
+    )
 
     auth = sub.add_parser("auth", help="Manage Horizon-owned provider secrets in the OS store")
-    auth.add_argument("provider", help="Provider id (currently: stepfun)")
+    auth.add_argument("provider", help="Provider id (stepfun or mimo)")
     auth.add_argument("auth_action", choices=["set", "status", "clear"], help="Auth action")
+    auth.add_argument(
+        "--region",
+        choices=list(MIMO_REGIONS),
+        default=MIMO_DEFAULT_REGION,
+        help="Region (used by mimo only; default: sgp)",
+    )
 
     args = parser.parse_args(argv)
     if args.command == "auth":

@@ -4,11 +4,11 @@ Current stage: **none authorized**
 Current phase: **none authorized**
 Status: **idle**
 
-Stage 3 is closed. Phase 11 was accepted on 2026-11-27. Snapshot: `docs/handoffs/phase-11.md`. Horizon release remains **0.2.1**.
+Stage 4 is closed. Phase 12 was accepted on 2026-11-27. Snapshot: `docs/handoffs/phase-12.md`. Horizon release remains **0.2.1**.
 
-No phase is executable. Stage 2 is closed history. Phase 10 was accepted on 2026-11-27. Snapshot: `docs/handoffs/phase-10.md`. Phase 9 was accepted on 2026-10-09. Snapshot: `docs/handoffs/phase-9.md`.
+No phase is executable. Stage 3 is closed. Phase 11 was accepted on 2026-11-27. Snapshot: `docs/handoffs/phase-11.md`. Phase 10 was accepted on 2026-11-27. Snapshot: `docs/handoffs/phase-10.md`. Phase 9 was accepted on 2026-10-09. Snapshot: `docs/handoffs/phase-9.md`.
 
-All other phase task files under `tasks/` are historical execution evidence only. Their presence does not authorize additional work.
+All phase task files under `tasks/` are historical execution evidence only. Their presence does not authorize additional work.
 
 ## Execution Order (when a phase is authorized)
 

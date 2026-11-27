@@ -19,6 +19,27 @@ TestCase {
         compare(MeterIntake.providerIdFromCommand(cmd), "stepfun")
     }
 
+    function test_mimo_command_passes_validated_region() {
+        var bin = "/home/jane doe/.local/bin/ai-usage"
+        var cmdCn = MeterIntake.collectorCommandForBin(bin, "mimo", "cn")
+        compare(cmdCn, "'/home/jane doe/.local/bin/ai-usage' status mimo --json --region 'cn'")
+        compare(MeterIntake.providerIdFromCommand(cmdCn), "mimo")
+
+        var cmdInvalid = MeterIntake.collectorCommandForBin(bin, "mimo", "us; rm -rf /")
+        compare(cmdInvalid, "'/home/jane doe/.local/bin/ai-usage' status mimo --json --region 'sgp'")
+        compare(MeterIntake.providerIdFromCommand(cmdInvalid), "mimo")
+    }
+
+    function test_refresh_ids_manual_only_for_mimo() {
+        var allFive = ["codex", "cursor", "stepfun", "claude", "mimo"]
+        compare(MeterIntake.refreshIds(allFive, false), ["codex", "cursor", "stepfun", "claude"])
+        compare(MeterIntake.refreshIds(allFive, true), ["codex", "cursor", "stepfun", "claude", "mimo"])
+
+        var four = ["codex", "cursor", "stepfun", "claude"]
+        compare(MeterIntake.refreshIds(four, false), four)
+        compare(MeterIntake.refreshIds(four, true), four)
+    }
+
     function test_relative_reset_advances_with_time() {
         var resetIso = "2026-11-27T20:00:00Z"
         var t1 = Date.parse("2026-11-27T18:00:00Z")

@@ -14,6 +14,12 @@ ColumnLayout {
     property string stepfunDetail: ""
     property bool stepfunBusy: false
 
+    property string mimoStatus: "…"
+    property string mimoDetail: ""
+    property bool mimoBusy: false
+    property bool cfg_enableMimo: false
+    property string cfg_mimoRegion: "sgp"
+
     function filesystemPath(urlOrPath) {
         var s = String(urlOrPath)
         if (s.indexOf("file://") === 0)
@@ -85,7 +91,68 @@ ColumnLayout {
         authExec.exec(helperCmd("clear"))
     }
 
-    Component.onCompleted: refreshStepfunStatus()
+    function normalizedMimoRegion() {
+        var r = String(mimoRegionBox.currentText || "sgp").trim()
+        return (r === "sgp" || r === "cn" || r === "ams") ? r : "sgp"
+    }
+
+    function mimoHelperCmd(action) {
+        var lib = dataPath() + "/horizon/collector/mimo_auth_helper.py"
+        return "python3 " + shellQuote(lib) + " " + action + " " + normalizedMimoRegion()
+    }
+
+    function applyMimoHelperResult(stdout, exitCode) {
+        var line = String(stdout || "").trim().split("\n").pop()
+        if (line === "working") {
+            mimoStatus = "Configured · working"
+            mimoDetail = "Key accepted by Xiaomi MiMo (" + normalizedMimoRegion() + ")."
+        } else if (line === "auth_failed") {
+            mimoStatus = "Configured · needs authentication"
+            mimoDetail = "Xiaomi MiMo rejected the key for region " + normalizedMimoRegion() + ". Check the tp- key and region, then save again."
+        } else if (line === "unavailable") {
+            mimoStatus = "Configured · unavailable"
+            mimoDetail = "Xiaomi MiMo could not be reached right now. Your stored key was kept; try Check status again when online."
+        } else if (line === "missing" || line === "cleared") {
+            mimoStatus = "Not configured"
+            mimoDetail = ""
+        } else if (line === "empty") {
+            mimoStatus = "Not saved"
+            mimoDetail = "Clipboard was empty. Copy your tp- key from the Xiaomi MiMo Token Plan console, then click Save key."
+        } else if (line === "invalid") {
+            mimoStatus = "Not saved"
+            mimoDetail = "Clipboard did not look like a Xiaomi MiMo tp- key (8-256 characters, no whitespace)."
+        } else if (line === "store_error") {
+            mimoStatus = "Store error"
+            mimoDetail = "Could not access KWallet."
+        } else {
+            mimoStatus = "Helper error"
+            mimoDetail = "Helper failed to run — reinstall with scripts/install.sh."
+        }
+    }
+
+    function refreshMimoStatus() {
+        mimoBusy = true
+        mimoDetail = ""
+        mimoExec.exec(mimoHelperCmd("status"))
+    }
+
+    function saveMimoKeyFromClipboard() {
+        mimoBusy = true
+        mimoDetail = "Saving…"
+        mimoKeyField.text = ""
+        mimoExec.exec(mimoHelperCmd("clipboard"))
+    }
+
+    function clearMimoKey() {
+        mimoBusy = true
+        mimoDetail = ""
+        mimoExec.exec(mimoHelperCmd("clear"))
+    }
+
+    Component.onCompleted: {
+        refreshStepfunStatus()
+        refreshMimoStatus()
+    }
 
     P5Support.DataSource {
         id: authExec
@@ -97,6 +164,22 @@ ColumnLayout {
             disconnectSource(sourceName)
             page.stepfunBusy = false
             page.applyHelperResult(stdout, exitCode)
+        }
+        function exec(cmd) {
+            connectSource(cmd)
+        }
+    }
+
+    P5Support.DataSource {
+        id: mimoExec
+        engine: "executable"
+        connectedSources: []
+        onNewData: function (sourceName, data) {
+            var stdout = data["stdout"] ? String(data["stdout"]).trim() : ""
+            var exitCode = (data && data["exit code"] !== undefined) ? Number(data["exit code"]) : 0
+            disconnectSource(sourceName)
+            page.mimoBusy = false
+            page.applyMimoHelperResult(stdout, exitCode)
         }
         function exec(cmd) {
             connectSource(cmd)
@@ -126,6 +209,23 @@ ColumnLayout {
             text: i18n("Claude")
             checked: plasmoid.configuration.enableClaude
             onCheckedChanged: plasmoid.configuration.enableClaude = checked
+        }
+        PlasmaComponents.CheckBox {
+            id: mimoCheck
+            text: "Xiaomi MiMo"
+            checked: page.cfg_enableMimo
+            onCheckedChanged: page.cfg_enableMimo = checked
+        }
+
+        QQC2.ComboBox {
+            id: mimoRegionBox
+            Kirigami.FormData.label: "MiMo region"
+            model: ["sgp", "cn", "ams"]
+            currentIndex: {
+                var idx = model.indexOf(String(page.cfg_mimoRegion || "sgp"))
+                return idx >= 0 ? idx : 0
+            }
+            onActivated: page.cfg_mimoRegion = model[currentIndex]
         }
 
         QQC2.ComboBox {
@@ -198,6 +298,65 @@ ColumnLayout {
             text: i18n("Check status")
             enabled: !page.stepfunBusy
             onClicked: page.refreshStepfunStatus()
+        }
+    }
+
+    Kirigami.Separator {
+        Layout.fillWidth: true
+        Layout.topMargin: Kirigami.Units.smallSpacing
+        Layout.bottomMargin: Kirigami.Units.smallSpacing
+    }
+
+    PlasmaComponents.Label {
+        Layout.fillWidth: true
+        text: "Xiaomi MiMo credential"
+        font.bold: true
+    }
+    PlasmaComponents.Label {
+        Layout.fillWidth: true
+        text: "Status: " + page.mimoStatus
+        wrapMode: Text.WordWrap
+        opacity: 0.9
+    }
+    PlasmaComponents.Label {
+        Layout.fillWidth: true
+        visible: page.mimoDetail.length > 0
+        wrapMode: Text.WordWrap
+        text: page.mimoDetail
+        opacity: 0.75
+    }
+    PlasmaComponents.Label {
+        Layout.fillWidth: true
+        wrapMode: Text.WordWrap
+        text: "1. Copy your tp- key from the Xiaomi MiMo Token Plan console. 2. Optional: paste here to confirm you copied it. 3. Click Save key (reads the clipboard; stored only in KWallet, never in Plasma config). MiMo refreshes only on manual Refresh."
+        opacity: 0.7
+    }
+
+    QQC2.TextField {
+        id: mimoKeyField
+        Layout.fillWidth: true
+        echoMode: TextInput.Password
+        placeholderText: "MiMo tp- key (optional paste check)"
+        enabled: !page.mimoBusy
+    }
+
+    RowLayout {
+        Layout.fillWidth: true
+        spacing: Kirigami.Units.smallSpacing
+        PlasmaComponents.Button {
+            text: "Save key"
+            enabled: !page.mimoBusy
+            onClicked: page.saveMimoKeyFromClipboard()
+        }
+        PlasmaComponents.Button {
+            text: "Clear"
+            enabled: !page.mimoBusy && page.mimoStatus.indexOf("Configured") === 0
+            onClicked: page.clearMimoKey()
+        }
+        PlasmaComponents.Button {
+            text: "Check status"
+            enabled: !page.mimoBusy
+            onClicked: page.refreshMimoStatus()
         }
     }
 }

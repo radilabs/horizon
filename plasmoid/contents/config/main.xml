@@ -22,6 +22,14 @@
       <label>Enable Claude</label>
       <default>true</default>
     </entry>
+    <entry name="enableMimo" type="Bool">
+      <label>Enable Xiaomi MiMo</label>
+      <default>false</default>
+    </entry>
+    <entry name="mimoRegion" type="String">
+      <label>Xiaomi MiMo region</label>
+      <default>sgp</default>
+    </entry>
     <entry name="refreshIntervalMinutes" type="Int">
       <label>Refresh interval (minutes)</label>
       <default>15</default>

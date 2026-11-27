@@ -986,3 +986,180 @@ Only `collector/providers/cursor.py`, any small `collector/ai-usage` wiring it n
 * Only after acceptance, write `docs/handoffs/phase-11.md` and produce the checkpoint.
 * Any release (version bump, tag, GitHub release) is a separate, explicitly approved owner action.
 * STOP. Do not start new work or a new phase automatically.
+
+---
+
+# Stage 4 — Provider Expansion
+
+## Goal
+
+Add AI coding subscriptions the owner uses as small, provider-specific adapters on the existing explicit `PROVIDERS` registry and the ADR-0012 ordered-meters contract. Each new provider gets its own read-only usage path and an authentication boundary that is already permitted. There is no shared authentication rewrite, no new credential framework, and no change to the four existing providers' behavior beyond what a phase contract names.
+
+## Entry Conditions
+
+* Stage 3 closed (2026-11-27). Phase 11 accepted. Horizon **0.2.1** (`v0.2.1`). `main` at `220563f`.
+* Discovery record for the first provider exists: `docs/research/xiaomi-mimo-coding-plan.md` (verdict CONDITIONAL GO).
+* Owners explicitly authorize Stage 4 / Phase 12 and record their decisions (authorized 2026-11-27).
+
+## Planned Phases
+
+* Phase 12 — Xiaomi MiMo Token Plan (accepted 2026-11-27; snapshot `docs/handoffs/phase-12.md`).
+
+> **Status:** closed 2026-11-27. Phase 12 is accepted. Horizon remains **0.2.1**. No later phase is authorized.
+
+No other Stage 4 phase is planned or authorized.
+
+## Exit Conditions
+
+Every authorized Stage 4 phase is accepted by the owners. Existing providers (Codex, Cursor, StepFun, Claude) keep their accepted behavior. ADR-0012, ADR-0009 and the read-only, no-login, no-cookie and no-refresh boundaries stay in force. No later phase is opened automatically.
+
+---
+
+# Phase 12 — Xiaomi MiMo Token Plan
+
+> **Status:** accepted 2026-11-27. Snapshot: `docs/handoffs/phase-12.md`. Horizon remains **0.2.1**. No release in this checkpoint. Task file: `tasks/phase-12-xiaomi-mimo-token-plan.md`. Discovery record: `docs/research/xiaomi-mimo-coding-plan.md`.
+
+## Goal
+
+Add provider `mimo` (display name `Xiaomi MiMo`). It shows the remaining Xiaomi MiMo Token Plan credits as one ADR-0012 meter. The data comes from Xiaomi's official `GET /v1/platform/token_plan` endpoint, read with a user-supplied `tp-` key held only in KWallet. Requests go only to the explicitly configured region. MiMo is fetched only on a manual refresh.
+
+## Entry Conditions
+
+* Stage 4 / Phase 12 explicitly authorized in `TASKS.md` (2026-11-27).
+* Baseline `220563f`: `python3 -m unittest discover -s tests` passes (61 tests, recorded by the Architect on 2026-11-27). The Coder re-records this and the QML suite counts before the first change.
+* ADR-0009 permits this credential: no provider-owned local `tp-` key source is in scope. Decision 7 is excluded here, and the env variable is user-owned, not provider-owned. ADR-0009 item 2 allows a user-supplied secret in the OS credential store, and item 7 lets future providers reuse `secret_store` when similarly justified. **No new ADR is written.** ADR-0009 text is not edited.
+
+## Owner Decisions (2026-11-27, binding for this phase)
+
+1. **Plan labels.** Map the documented tiers and billing periods in `plan_code` to readable names. `lite` → `Lite`, `standard` → `Standard`, `pro` → `Pro`, `max` → `Max`. The suffix `:year` → ` · Annual` (so `lite:year` → `Lite · Annual`), and `:month` → ` · Monthly`. A bare known tier with no suffix maps to the tier name alone. No period is invented. An unknown tier, or a known tier with an unknown suffix, is **preserved**: the raw `plan_code` is trimmed, limited to printable characters and at most 64 characters, then shown as is. It is not dropped and not replaced. A missing or empty `plan_code` gives `plan: null`.
+2. **Credentials: KWallet only, StepFun pattern.** `secret_store` entry `mimo/token-plan-key` (folder `Horizon`). Management through `ai-usage auth mimo set|status|clear` and a settings helper that reads the clipboard. Horizon never parses `~/.bashrc` or any shell profile. It never reads `XIAOMI_API_KEY`, `MIMO_API_KEY` or any other environment variable for the key. It writes no plaintext file and has no CLI flag that carries the key.
+3. **Region.** Explicit configuration with values `sgp`, `cn` and `ams`, default `sgp`. Regions are never probed. HTTP 401 is `auth_unavailable` for the configured region, and no other host is tried.
+4. **Period.** `resetAt` is Xiaomi's `period.end_at`, parsed as UTC and stored as ISO-8601 with `+00:00`. No monthly reset is invented for annual plans.
+5. **Polling: manual refresh only.** Xiaomi's Token Plan subscription terms say the quota "is only available for use in programming tools". They prohibit "API calls for request behaviors in obvious non-coding scenarios … such as automated scripts and custom application backends" (`mimo.mi.com/static/docs/tokenplan/Token%20Plan/subscription.md`). That text does not clearly permit unattended polling, so **periodic or automatic MiMo fetching is out of this phase**. In `plasmoid/contents/ui/main.qml`, `refreshUsage()` is reached from these places:
+   * the interval `refreshTimer`;
+   * `Component.onCompleted`;
+   * `onExpandedChanged` (popup open);
+   * `onConfigChanged()` (configuration changes);
+   * the Refresh button (`onClicked`, which also covers Space, and the Return and Enter key handlers);
+   * the F5 `Shortcut`.
+
+   The interval timer, startup, popup-open and config-change paths **must not** spawn the MiMo collector. Only the Refresh button (click, Space, Return, Enter), the F5 shortcut, and `ai-usage status mimo` run by hand may fetch. A MiMo result already in the model, or the existing stale cache fallback on a manual refresh, may still be shown. No new polling framework is added.
+6. **One provider and one meter.** Provider id `mimo` in the existing `PROVIDERS` registry. Exactly one meter, label `Credits`. `remainingPercent = max(0, min(100, int(round(remaining_credits / total_credits * 100))))`, the same round-then-clamp style as StepFun's `_clamp_pct_from_left_rate`. `total_credits <= 0`, or a missing or invalid `quota`, gives an error payload with no meter and no 0% bar.
+7. **No MiMo-Code credentials.** Never read `~/.local/share/mimocode/auth.json`, `~/.config/mimocode/` or any MiMo-Code credential or config file.
+
+## Scope
+
+1. **Provider module** `collector/providers/mimo.py`, class `MiMoProvider`, with `id = "mimo"` and `display_name = "Xiaomi MiMo"`:
+   * `detect()` raises `auth_unavailable` when no KWallet key is stored.
+   * `fetch_usage()` issues exactly one `GET https://token-plan-{region}.xiaomimimo.com/v1/platform/token_plan`. It sends the KWallet key as `Authorization: Bearer <key>` and builds the payload through `providers.contract.project_ok`.
+   * A test-only base-URL override, `MIMO_API_BASE`, is allowed for offline fake-server tests, following the `CURSOR_API_BASE` precedent. It replaces the whole origin and never adds a region fallback.
+2. **Registry and CLI wiring** in `collector/ai-usage`:
+   * Add `"mimo": MiMoProvider` to `PROVIDERS`.
+   * Add a non-secret `--region {sgp,cn,ams}` option, default `sgp`, to `status` and `auth`. It is used only by `mimo`, is validated by argparse choices, and is passed to `MiMoProvider(region=…)`.
+   * Extend `cmd_auth` so `ai-usage auth mimo set|status|clear` follows the StepFun semantics:
+     * `set` uses a non-echo TTY prompt, or one stdin line when not a TTY.
+     * `set` and `status` print `working`, `auth_failed`, `unavailable` or `missing`. `clear` prints `cleared`.
+     * The verify step is one usage GET to the configured region.
+   * The StepFun branch is unchanged.
+3. **Key shape check (no decoding).** Accept the key only when it is a non-empty string that starts with `tp-`, has no whitespace, and is 8–256 characters long. Reject anything else without echoing it.
+4. **Status mapping.**
+   * Missing key → `auth_unavailable`.
+   * HTTP 401 → `auth_unavailable`, with a message that names the configured region and says to check the key and region.
+   * Network failure (`URLError`, timeout), any non-200 status other than 401, invalid JSON, or an unexpected shape → `upstream_error`. This includes HTTP 403.
+   * `total_credits <= 0`, or a missing `quota` or `total_credits` → `upstream_error`, with no meter.
+   * No new status code is added. The existing `stale` fallback applies unchanged.
+5. **Normalization.**
+   * One meter: label `Credits`, the percent from decision 6, and `resetAt` from decision 4.
+   * A missing or unparseable `period.end_at` omits `resetAt` and keeps the meter.
+   * `plan` follows decision 1.
+   * `remaining_credits` is clamped to `0..total_credits` before dividing. When `remaining_credits` is absent, use `max(0, total − used)` per Xiaomi's formula. When both are absent, return `upstream_error`.
+6. **Install.** `scripts/install.sh` lists collector files explicitly, so add `providers/mimo.py` and `mimo_auth_helper.py` there. Make no other installer change.
+7. **Cache.** `~/.cache/horizon/usage-mimo.json` through the existing `write_success`, with normalized fields only. The existing forbidden-key check applies.
+8. **Settings helper.** `collector/mimo_auth_helper.py <status|clipboard|stdin|clear> <region>` mirrors `stepfun_auth_helper.py`:
+   * The key comes from the clipboard or stdin, never from argv.
+   * It clears the clipboard after a save, and prints only the fixed status words.
+   * `stepfun_auth_helper.py` is not modified.
+9. **Plasmoid.**
+   * `plasmoid/contents/config/main.xml`: add `enableMimo` (Bool, default **false**) and `mimoRegion` (String, default `sgp`).
+   * `configGeneral.qml`: add a MiMo enable checkbox, a region selector (`sgp`, `cn`, `ams`), and a MiMo credential section with Save key (clipboard), Check status and Clear, using the StepFun section's pattern. Do not change the StepFun section.
+   * `main.qml`:
+     * Add `mimo` to `allProviderIds`, `enabledProviderIds()` and `providerEnabled()`.
+     * Pass `--region <mimoRegion>` only for `mimo` in the collector command.
+     * Split the refresh entry points so that automatic callers skip `mimo` and manual callers (Refresh button, Return/Enter, F5) include it.
+     * Before any MiMo fetch in the session, show the idle MiMo row with a manual-refresh hint.
+     * The config-change handlers (including `mimoRegion` and `enableMimo`) never fetch MiMo.
+   * A pure helper in `MeterIntake.js` (for example `refreshIds(enabledIds, manual)`) holds the manual-only rule so QML tests can check it.
+   * The help text in the empty-providers message includes MiMo.
+10. **Tests.** Offline only, with fabricated fixtures and a fake HTTP server. The tests never read the real environment key: `XIAOMI_API_KEY` and `MIMO_API_KEY` are removed from the test process environment, or proven unused. `secret_store` is stubbed. Coverage is listed in the task file.
+11. **Writer step (after implementation, before Watcher).**
+    * `docs/providers/mimo.md` (new).
+    * `docs/provider-contract.md`: registry block, provider list, `--region` note.
+    * `docs/security.md`: the KWallet entry, the never-commit list, the no-env/no-bashrc/no-MiMo-Code rule, and the manual-refresh rule with its Xiaomi citation.
+    * The README `Supported providers` row.
+    * `docs/research/xiaomi-mimo-coding-plan.md` stays a research record, except for the single authorization status line.
+
+## Explicit Exclusions
+
+* The console or dashboard endpoints (`platform.xiaomimimo.com/api/v1/tokenPlan/*`, `/api/v1/balance`), browser cookies, Xiaomi Account SSO, login, OAuth, device flows, and token minting.
+* Any Xiaomi host other than `token-plan-{configured region}.xiaomimimo.com`. Region probing, region fallback, and retrying another host after a 401.
+* Inference calls, any request that consumes credits, and the Finance balance, daily consumption or bill endpoints. Absolute credit counts, spend or cash in the payload.
+* Reading the key from environment variables, `~/.bashrc` or any shell profile, a plaintext file, MiMo-Code's `auth.json` or config, or a CLI flag.
+* Automatic, periodic, startup, popup-open or config-change MiMo fetches. A new polling or scheduling framework. A per-provider interval setting.
+* Team-edition seats, multiple keys, multiple accounts or regions at once, and per-model breakdowns.
+* A new ADR, edits to ADR-0009, ADR-0012 or any other accepted decision, and any change to `docs/usage-schema.md`, the meter schema, the status vocabulary, or the cached field set.
+* Changes to Codex, Cursor, StepFun or Claude behavior. The only exception is the shared refresh path in `main.qml`, which now skips MiMo on automatic triggers. Changes to `stepfun_auth_helper.py`.
+* A general authentication framework, shared credential layer, or refactor of `cmd_auth` beyond adding the `mimo` branch.
+* `VERSION`, `plasmoid/metadata.json` `KPlugin.Version`, the README version line, CHANGELOG release entries, tags, GitHub releases, and pushing to `main` during implementation.
+* Creating `docs/handoffs/phase-12.md` before owner acceptance. Editing accepted task files or handoffs.
+
+## Acceptance Criteria
+
+1. **Payload.** With a fake `MIMO_API_BASE` server and a stubbed KWallet key, `ai-usage status mimo --json --no-cache --region sgp` returns `status=ok` with exactly one meter:
+   * label `Credits`;
+   * `remainingPercent` equal to the decision-6 formula;
+   * `resetAt` equal to `period.end_at` as ISO-8601 with `+00:00`.
+
+   The compatibility fields equal the projections from `project_ok`.
+2. **Plan labels.** `lite` → `Lite`, `lite:year` → `Lite · Annual`, `pro:month` → `Pro · Monthly`. An unknown code (for example `ultra:quarter` or `lite:weird`) is preserved as its sanitized raw string. A missing or empty code gives `null`. A label is never invented.
+3. **Period.** Fixtures for a monthly plan (about 1 month) and an annual plan (about 1 year) each produce `resetAt` equal to their own `end_at`, with no monthly reset synthesized for the annual plan. A malformed `end_at` omits `resetAt`.
+4. **Credentials.**
+   * A missing KWallet key gives `auth_unavailable` from `detect()` and from `status`, with zero HTTP requests.
+   * Setting `XIAOMI_API_KEY` or `MIMO_API_KEY` in the environment has no effect.
+   * No code path opens `~/.bashrc`, a shell profile, or any `mimocode` path. This is checked by a test and by `git grep`.
+5. **Region.**
+   * The request goes to the configured region host only (`sgp` by default, and `cn` and `ams` when configured).
+   * A 401 gives `auth_unavailable` after exactly **one** request, with no request to any other region.
+   * An invalid region value is rejected by argparse.
+6. **Failure states.** A network error, HTTP 403 or 500, invalid JSON, a JSON array, `total_credits` of 0 or negative, and a missing `quota` each give `upstream_error`. A cold cache produces no `meters` key. A warm cache gives `stale` through the existing path.
+7. **Manual-only refresh.** QML or `MeterIntake.js` tests show:
+   * the automatic path (timer, startup, popup open, config change) never includes `mimo`;
+   * the manual path (Refresh button click, Space, Return, Enter, F5) includes `mimo` when it is enabled;
+   * the other four providers are refreshed exactly as before on every path.
+8. **Secret audit.**
+   * The fixture key never appears in stdout, stderr, `--json`, error messages, the cache file, logs, docs, or the argv of any process Horizon spawns (helper, collector, QML command).
+   * The `docs/security.md` secret-check procedure finds no real key.
+   * Fixtures use obviously fake values such as `tp-fake-fixture-key`.
+9. **Settings.** The settings page shows the MiMo enable checkbox, the region selector and the credential section. Save key, Check status and Clear map to the fixed status words. Live verification uses the configured region only.
+10. **No regression.**
+    * All pre-existing Python and QML tests pass, plus the new ones.
+    * Codex, Cursor, StepFun and Claude still return their accepted results through `ai-usage status <id> --json`.
+    * The StepFun auth CLI and helper behave as before.
+11. **Live check (only if a key is configured in KWallet).** One manual `ai-usage status mimo --json --region <configured>` run is recorded in sanitized form only: the status, meter label, percent bucket, whether `resetAt` is present, and the plan label. No key, email or user id is recorded.
+12. **Scope fence.**
+    * `git diff 220563f --stat` touches only:
+      * `collector/providers/mimo.py`, `collector/mimo_auth_helper.py`, `collector/ai-usage`;
+      * `plasmoid/contents/config/main.xml`, `plasmoid/contents/ui/configGeneral.qml`, `plasmoid/contents/ui/main.qml`, `plasmoid/contents/ui/MeterIntake.js`;
+      * `scripts/install.sh`, which must install `providers/mimo.py` and `mimo_auth_helper.py` because it lists collector files explicitly; `scripts/uninstall.sh` and `scripts/upgrade.sh` do not list collector files and stay unchanged;
+      * `tests/`;
+      * the Writer docs, the research note status line, and the Factory files (`PHASES.md`, `TASKS.md`, `tasks/`).
+    * `VERSION`, `plasmoid/metadata.json`, `decisions/`, `docs/handoffs/`, `docs/usage-schema.md`, the other provider modules and `collector/stepfun_auth_helper.py` show no diff.
+13. **Deferred Work.** Out-of-scope discoveries are recorded in the task file.
+14. **Watcher, then stop.** Independent Watcher verification returns PASS, then work stops for explicit owner acceptance.
+
+## Handoff Contract
+
+* Record direct evidence for every task and criterion in `tasks/phase-12-xiaomi-mimo-token-plan.md`. Watcher reports go under the gitignored `reports/` as `stage-4-phase-12-watcher-<attempt>.md`.
+* Independent Watcher PASS, then explicit owner acceptance.
+* Only after acceptance, write `docs/handoffs/phase-12.md` and produce the checkpoint.
+* Any release (version bump, tag, GitHub release) is a separate, explicitly approved owner action.
+* STOP. Do not start new work or a new phase automatically.

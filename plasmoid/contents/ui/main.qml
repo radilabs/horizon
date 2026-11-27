@@ -51,7 +51,7 @@ PlasmoidItem {
     switchHeight: Kirigami.Units.gridUnit * 8
     activationTogglesExpanded: true
 
-    readonly property var allProviderIds: ["codex", "cursor", "stepfun", "claude"]
+    readonly property var allProviderIds: ["codex", "cursor", "stepfun", "claude", "mimo"]
 
     property string compactText: "AI"
     property string tooltipSummary: "AI Agent Usage"
@@ -74,6 +74,8 @@ PlasmoidItem {
     }
 
     function collectorCommand(providerId) {
+        if (providerId === "mimo")
+            return MeterIntake.collectorCommandForBin(collectorBin(), providerId, plasmoid.configuration.mimoRegion)
         return MeterIntake.collectorCommandForBin(collectorBin(), providerId)
     }
 
@@ -91,6 +93,8 @@ PlasmoidItem {
             ids.push("stepfun")
         if (plasmoid.configuration.enableClaude)
             ids.push("claude")
+        if (plasmoid.configuration.enableMimo)
+            ids.push("mimo")
         return ids
     }
 
@@ -103,6 +107,8 @@ PlasmoidItem {
             return plasmoid.configuration.enableStepfun
         if (providerId === "claude")
             return plasmoid.configuration.enableClaude
+        if (providerId === "mimo")
+            return plasmoid.configuration.enableMimo
         return false
     }
 
@@ -142,11 +148,11 @@ PlasmoidItem {
             } else {
                 providersModel.append({
                     providerId: id,
-                    providerName: id,
+                    providerName: id === "mimo" ? "Xiaomi MiMo" : id,
                     planName: "",
                     metersJson: "[]",
                     statusCode: "idle",
-                    statusLabel: "",
+                    statusLabel: id === "mimo" ? "Press Refresh to check" : "",
                     errorText: "",
                     fetchedAt: "",
                     fetchedAtText: "",
@@ -168,7 +174,7 @@ PlasmoidItem {
         return MeterIntake.formatFetchedAt(iso)
     }
 
-    function friendlyStatusLabel(statusCode, stale, hasQuota, fetchedAtText, inFlight) {
+    function friendlyStatusLabel(statusCode, stale, hasQuota, fetchedAtText, inFlight, providerId) {
         if (inFlight && (statusCode === "idle" || statusCode === ""))
             return "Loading…"
         if (statusCode === "ok")
@@ -184,7 +190,7 @@ PlasmoidItem {
         if (statusCode === "collector_error")
             return "Collector error"
         if (statusCode === "idle")
-            return ""
+            return providerId === "mimo" ? "Press Refresh to check" : ""
         return "Unavailable"
     }
 
@@ -213,7 +219,8 @@ PlasmoidItem {
                 row.stale,
                 row.hasQuota,
                 nextFetchedText,
-                row.inFlight
+                row.inFlight,
+                row.providerId
             )
             var nextMetersJson = row.metersJson
             if (row.metersJson && row.metersJson !== "[]") {
@@ -297,7 +304,7 @@ PlasmoidItem {
             }
         }
 
-        var statusLabel = friendlyStatusLabel(statusCode, stale, hasQuota, fetchedAtText, false)
+        var statusLabel = friendlyStatusLabel(statusCode, stale, hasQuota, fetchedAtText, false, providerId)
         var errorText = (obj && typeof obj.error === "string") ? obj.error : ""
 
         providersModel.set(idx, {
@@ -376,9 +383,9 @@ PlasmoidItem {
         executable.exec(collectorCommand(providerId))
     }
 
-    function refreshUsage() {
+    function refreshUsage(manual) {
         syncModelToEnabled()
-        var ids = enabledProviderIds()
+        var ids = MeterIntake.refreshIds(enabledProviderIds(), manual === true)
         if (ids.length === 0) {
             updateCompactSummary()
             return
@@ -390,13 +397,13 @@ PlasmoidItem {
     function onConfigChanged() {
         syncModelToEnabled()
         refreshTimer.restart()
-        refreshUsage()
+        refreshUsage(false)
     }
 
     onExpandedChanged: function (expanded) {
         if (expanded) {
             recomputeRelativeTimes()
-            refreshUsage()
+            refreshUsage(false)
         }
     }
 
@@ -406,6 +413,8 @@ PlasmoidItem {
         function onEnableCursorChanged() { root.onConfigChanged() }
         function onEnableStepfunChanged() { root.onConfigChanged() }
         function onEnableClaudeChanged() { root.onConfigChanged() }
+        function onEnableMimoChanged() { root.onConfigChanged() }
+        function onMimoRegionChanged() { root.onConfigChanged() }
         function onRefreshIntervalMinutesChanged() {
             refreshTimer.interval = Math.max(1, root.plasmoid.configuration.refreshIntervalMinutes) * 60 * 1000
             refreshTimer.restart()
@@ -417,7 +426,7 @@ PlasmoidItem {
         interval: Math.max(1, root.plasmoid.configuration.refreshIntervalMinutes) * 60 * 1000
         running: true
         repeat: true
-        onTriggered: root.refreshUsage()
+        onTriggered: root.refreshUsage(false)
     }
 
     Timer {
@@ -430,7 +439,7 @@ PlasmoidItem {
 
     Component.onCompleted: {
         syncModelToEnabled()
-        refreshUsage()
+        refreshUsage(false)
     }
 
     P5Support.DataSource {
@@ -525,7 +534,7 @@ PlasmoidItem {
             sequences: ["F5"]
             context: Qt.WindowShortcut
             enabled: providersModel.count > 0
-            onActivated: root.refreshUsage()
+            onActivated: root.refreshUsage(true)
         }
 
         ColumnLayout {
@@ -561,17 +570,17 @@ PlasmoidItem {
                     activeFocusOnTab: true
                     Accessible.name: root.anyInFlight ? "Refreshing" : "Refresh"
                     Accessible.description: "Refresh usage for every enabled provider"
-                    onClicked: root.refreshUsage()
+                    onClicked: root.refreshUsage(true)
                     Keys.onReturnPressed: function (event) {
                         if (enabled) {
                             event.accepted = true
-                            root.refreshUsage()
+                            root.refreshUsage(true)
                         }
                     }
                     Keys.onEnterPressed: function (event) {
                         if (enabled) {
                             event.accepted = true
-                            root.refreshUsage()
+                            root.refreshUsage(true)
                         }
                     }
 
@@ -604,7 +613,7 @@ PlasmoidItem {
                         width: parent.width
                         visible: providersModel.count === 0
                         wrapMode: Text.WordWrap
-                        text: "No providers enabled. Open widget settings to enable Codex, Cursor, StepFun, or Claude."
+                        text: "No providers enabled. Open widget settings to enable Codex, Cursor, StepFun, Claude, or Xiaomi MiMo."
                         color: Kirigami.Theme.disabledTextColor
                     }
 
