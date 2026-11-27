@@ -7,7 +7,7 @@ Horizon is a KDE Plasma widget for Linux that keeps an eye on OpenAI Codex (Chat
 Compact panel: the lowest remaining quota. A meter at 0 is counted beside that number (`AI 75% · 1 at 0%`) instead of replacing it. When every meter is at 0 the panel shows `AI 0%`.
 Popup: one section per provider with its plan, one row per remaining-quota meter with that meter's own reset, and clear stale / auth / error labels. Hover the panel for each meter's label.
 
-<img src="docs/assets/horizon-usage.png" alt="Horizon popup with Codex, Cursor, StepFun, and Claude. Each meter shows percent remaining and its own reset. Cursor Other Models is at 0 percent and shown in the theme's negative color." width="360">
+<img src="docs/assets/horizon-usage.png" alt="Horizon popup with Codex, Cursor, StepFun, Claude, and Xiaomi MiMo. Each meter shows percent remaining and its own reset. Xiaomi MiMo is Lite · Annual with Credits at 96 percent remaining." width="360">
 
 <img src="docs/assets/horizon-compact.png" alt="Horizon panel tooltip listing every enabled provider and meter, with the panel reading AI 70% · 1 at 0%" width="420">
 
